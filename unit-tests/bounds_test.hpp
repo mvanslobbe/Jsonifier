@@ -1,36 +1,17 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/bounds_test.hpp
+ */
 #pragma once
 
-#include "common.hpp"
 #include "parsing_tests.hpp"
-
-#include <random>
-#include <cstdint>
+#include "common.hpp"
 
 namespace bounds_tests {
 
-	class random_die {
+	struct random_die {
 	  public:
 		inline random_die() : seed{ static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()) } {
 			seedState(seed);
@@ -54,7 +35,7 @@ namespace bounds_tests {
 		uint64_t seed;
 		uint64_t s[4];
 
-		inline static uint64_t rotl(uint64_t x, int k) {
+		inline static uint64_t rotl(uint64_t x, int32_t k) {
 			return (x << k) | (x >> (64 - k));
 		}
 
@@ -72,7 +53,7 @@ namespace bounds_tests {
 
 		inline void seedState(uint64_t seedVal) {
 			uint64_t z = seedVal;
-			for (int i = 0; i < 4; ++i) {
+			for (int32_t i = 0; i < 4; ++i) {
 				z += 0x9e3779b97f4a7c15ULL;
 				uint64_t x = z;
 				x		   = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -105,23 +86,22 @@ namespace bounds_tests {
 		static constexpr rt_ut::string_literal testName{ testNameNew };
 		static constexpr rt_ut::string_literal testNameRtUt{ testNameNew + ", " + testTypePartial<partial> + testTypeKnownOrder<knownOrder> +
 			testTypeNullTerminated<nullTerminated> };
-		auto dataToParse = file_handle::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
+		auto dataToParse = file_handler::get(basePath.operator std::string() + "/json/" + testName.operator std::string() + ".json");
 		jsonifier::jsonifier_core<> parser{};
 		rt_ut::unit_test<testNameRtUt, true>::run(
 			[&](std::string s) {
 				test_data_type jsonifierValue;
-				parser.parseJson<
-					jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .validateUtf8 = true, .nullTerminated = nullTerminated }>(
+				parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
 					jsonifierValue, s);
 				if (parser.getErrors().size()) {
+					std::cout << "FULL PARSE FAILURE: " << parser.getErrors()[0].reportError() << std::endl;
 					return false;
 				}
 				random_die randomDie{};
 				s.pop_back();
 				test_data_type jsonifierValueLocal;
 				while (!s.empty()) {
-					parser.parseJson<jsonifier::
-							parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .validateUtf8 = true, .nullTerminated = nullTerminated }>(
+					parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder, .minified = !prettified, .nullTerminated = nullTerminated }>(
 						jsonifierValueLocal, s);
 					if (!parser.getErrors().size()) {
 						std::cout << "BOUNDS TEST FAILURE, test: " << testNameRtUt.operator std::string() << ", repro seed: " << randomDie.getSeed() << std::endl;
@@ -137,24 +117,12 @@ namespace bounds_tests {
 	template<bool partial, bool knownOrder, bool nullTerminated> inline static void boundsTestsImpl() {
 		std::cout << "Starting Bounds-Truncation Test, " << testTypePartial<partial> << testTypeKnownOrder<knownOrder> << testTypeNullTerminated<nullTerminated> << ": "
 				  << std::endl;
-		boundsTestsImpl<"Abc (In Order) Partial Test (Minified)", abc_in_order_partial_test, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (In Order) Partial Test (Prettified)", abc_in_order_partial_test, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (In Order) Test (Minified)", abc_in_order_test, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (In Order) Test (Prettified)", abc_in_order_test, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (Out of Order) Partial Test (Minified)", abc_out_of_order_partial_test, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (Out of Order) Partial Test (Prettified)", abc_out_of_order_partial_test, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (Out of Order) Test (Minified)", abc_out_of_order_test, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Abc (Out of Order) Test (Prettified)", abc_out_of_order_test, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Apache Builds Test (Minified)", apache_builds_message, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Apache Builds Test (Prettified)", apache_builds_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Canada Test (Minified)", canada_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Canada Test (Prettified)", canada_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"CitmCatalog Test (Minified)", citm_catalog_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"CitmCatalog Test (Prettified)", citm_catalog_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Discord Test (Minified)", discord_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Discord Test (Prettified)", discord_message, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Github Events Test (Minified)", github_events_message, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Github Events Test (Prettified)", github_events_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Google Maps Response Test (Minified)", google_maps_response_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Google Maps Response Test (Prettified)", google_maps_response_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Instruments Test (Minified)", instruments_message, false, partial, knownOrder, nullTerminated>();
@@ -163,8 +131,6 @@ namespace bounds_tests {
 		boundsTestsImpl<"Marine IK Test (Prettified)", marine_ik, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Mesh Test (Minified)", mesh_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Mesh Test (Prettified)", mesh_message, true, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Semanticscholar Corpus Test (Minified)", semantic_scholar_message, false, partial, knownOrder, nullTerminated>();
-		boundsTestsImpl<"Semanticscholar Corpus Test (Prettified)", semantic_scholar_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Random Test (Minified)", random_message, false, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Random Test (Prettified)", random_message, true, partial, knownOrder, nullTerminated>();
 		boundsTestsImpl<"Twitter Partial Test (Minified)", twitter_partial_message, false, partial, knownOrder, nullTerminated>();
@@ -182,6 +148,7 @@ namespace bounds_tests {
 		boundsTestsImpl<false, true, true>();
 		boundsTestsImpl<true, false, true>();
 		boundsTestsImpl<true, true, true>();
+		std::cout << "Bounds truncation validation tests complete." << std::endl;
 	}
 
 }

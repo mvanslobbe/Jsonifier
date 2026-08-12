@@ -1,25 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/json_iterator.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/string_view.hpp>
@@ -29,8 +13,7 @@
 
 namespace jsonifier::internal {
 
-	template<parse_options options> struct string_parser;
-	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(string_view_ptr src);
+	template<string_literal stringNew> JSONIFIER_INLINE static bool compareStringAsInt(read_buffer_ptr src);
 
 	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE static void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept;
 
@@ -42,15 +25,15 @@ namespace jsonifier::internal {
 		error,
 	};
 
-	template<parse_options parseOpts, typename string_buffer_type> struct json_iterator<parseOpts, string_view_ptr, string_buffer_type> {
+	template<parse_options parseOpts, typename string_buffer_type> struct json_iterator<parseOpts, read_buffer_ptr, string_buffer_type> {
 	  protected:
 		string_buffer_type* stringBuffer{};
 		uint64_t currentObjectDepth{};
 		uint64_t currentArrayDepth{};
 		std::vector<error>* errors{};
-		string_view_ptr rootIter{};
-		string_view_ptr endIter{};
-		string_view_ptr iter{};
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr endIter{};
+		read_buffer_ptr iter{};
 
 	  public:
 		JSONIFIER_INLINE json_iterator() noexcept = default;
@@ -58,15 +41,15 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew) noexcept : stringBuffer{ stringBufferNew }, rootIter{}, endIter{}, iter{} {
 		}
 
-		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, string_view_ptr rootIterNew, string_view_ptr endIterNew) noexcept
+		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
 			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, iter{ rootIterNew } {
 		}
 
-		JSONIFIER_INLINE string_view_ptr& currentPtr() noexcept {
+		JSONIFIER_INLINE read_buffer_ptr& currentPtr() noexcept {
 			return iter;
 		}
 
-		JSONIFIER_INLINE string_view_ptr endPtr() const noexcept {
+		JSONIFIER_INLINE read_buffer_ptr endPtr() const noexcept {
 			return endIter;
 		}
 
@@ -271,11 +254,11 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
 			using value_type = number_type;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, endIter); iterNew) {
 							iter = iterNew;
 							return true;
@@ -293,7 +276,7 @@ namespace jsonifier::internal {
 						}
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, endIter); iterNew) {
 							iter = iterNew;
 							return true;
@@ -312,16 +295,16 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, iter, endIter); iterNew) {
+					if (auto iterNew = float_parser<double>::parseFloat(temp, iter, endIter); iterNew) {
 						iter  = iterNew;
 						value = static_cast<value_type>(temp);
 						return true;
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, iter, endIter); iterNew) {
+					if (auto iterNew = float_parser<value_type>::parseFloat(value, iter, endIter); iterNew) {
 						iter = iterNew;
 						return true;
 					} else {
@@ -331,13 +314,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = endIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = endIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							iter = iterNew;
 							return true;
@@ -353,7 +336,7 @@ namespace jsonifier::internal {
 						return reject<parse_statuses::invalid_number_value>();
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							iter = iterNew;
 							return iterNew == valueEnd;
@@ -370,16 +353,16 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						value = static_cast<value_type>(temp);
 						iter  = iterNew;
 						return iterNew == valueEnd;
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						iter = iterNew;
 						return iterNew == valueEnd;
 					}
@@ -388,13 +371,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (endIter - ptr == 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr	 = currentPtr();
+			const auto remaining = endIter - ptr;
+			if (remaining < 4) [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal && remaining == 4) {
 				value = true;
 				iter += 4;
 				return true;
-			} else if (endIter - ptr == 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && remaining == 5 && ptr[4] == 'e') {
 				value = false;
 				iter += 5;
 				return true;
@@ -430,57 +424,78 @@ namespace jsonifier::internal {
 			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
-			if (endIter - iter >= 4 && compareStringAsInt<"true">(iter)) {
-				value = true;
-				iter += 4;
-				return true;
-			} else if (endIter - iter >= 5 && compareStringAsInt<"fals">(iter) && iter[4] == 'e') {
-				value = false;
-				iter += 5;
-				return true;
+		JSONIFIER_INLINE bool objectStartRoot() noexcept {
+			return incrementIfEquals<'{'>() ? true : reject<parse_statuses::missing_object_start>();
+		}
+
+		JSONIFIER_INLINE bool arrayStartRoot() noexcept {
+			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
+		}
+
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			if (endIter - iter < 4) [[unlikely]] {
+				return reject<parse_statuses::unexpected_string_end>();
 			}
-			return reject<parse_statuses::invalid_bool_value>();
+
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, iter);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			iter += 4;
+			if (comparison == trueVal) {
+				value = true;
+			} else if (comparison == falseVal && (*iter == 'e')) [[likely]] {
+				value = false;
+				++iter;
+			} else [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			return true;
 		}
 
 		JSONIFIER_INLINE bool iterateNull() noexcept {
-			if (endIter - iter >= 4 && compareStringAsInt<"null">(iter)) [[likely]] {
-				iter += 4;
+			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
+			if (endIter - iter < 4) [[unlikely]] {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, iter);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			iter += 4;
+			if (comparison == nullVal) [[likely]] {
 				return true;
-			} else {
+			} else [[unlikely]] {
 				return reject<parse_statuses::invalid_null_value>();
 			}
 		}
 
-		template<jsonifier::concepts::string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
+		template<string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
 			++iter;
 			if (iter >= endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
 			}
-			auto iterStart = iter;
-			const auto res = string_scanner<parseOpts>::impl(iter, endIter);
-			if (!res.valid) [[unlikely]] {
+			const auto iterStart = iter;
+			auto& scratch		 = getStringBuffer();
+			const auto needed	 = static_cast<uint64_t>(endIter - iter) + simdBytesPerStep;
+			if (scratch.size() < needed) [[unlikely]] {
+				scratch.resize(needed);
+			}
+			const auto res = string_scanner<parseOpts>::impl(iter, endIter, scratch.data());
+			if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				iter = iterStart;
 				return reject<parse_statuses::invalid_string_characters>();
 			}
-			if constexpr (concepts::has_resize<string_type>) {
-				if (value.size() != res.rawLength) [[unlikely]] {
-					value.resize(res.rawLength);
+			if constexpr (has_resize<string_type>) {
+				if (value.size() != res.outLength) [[unlikely]] {
+					value.resize(res.outLength);
 				}
 			}
-			if (res.firstEscape == string_scanner<parseOpts>::npos) [[likely]] {
-				std::memcpy(value.data(), iter, res.rawLength);
-			} else [[unlikely]] {
-				std::memcpy(value.data(), iter, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
-				if (!finalPtr) [[unlikely]] {
-					iter = iterStart;
-					return reject<parse_statuses::invalid_string_characters>();
-				}
-				if constexpr (concepts::has_resize<string_type>) {
-					value.resize(static_cast<uint64_t>(finalPtr - value.data()));
-				}
-			}
+			memcpy_wrapper(value.data(), scratch.data(), res.outLength);
 			iter += res.rawLength + 1;
 			if (iter > endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
@@ -549,18 +564,28 @@ namespace jsonifier::internal {
 		}
 	};
 
+	struct ws_tracker {
+		uint64_t pass{};
+		uint64_t fail{};
+		~ws_tracker() {
+			out << "Fail: " << fail << endl;
+			out << "Pass: " << pass << endl;
+		}
+	};
+
 	template<parse_options parseOpts, typename string_buffer_type>
 		requires(!parseOpts.minified)
-	struct json_iterator<parseOpts, string_view_ptr, string_buffer_type> {
+	struct json_iterator<parseOpts, read_buffer_ptr, string_buffer_type> {
 	  protected:
-		static constexpr uint64_t allSpacesMask{ 0x2020202020202020ull };
+		base_t<decltype(*read_buffer_ptr{})> wsChar{};
 		string_buffer_type* stringBuffer{};
 		uint64_t currentObjectDepth{};
 		uint64_t currentArrayDepth{};
 		std::vector<error>* errors{};
-		string_view_ptr rootIter{};
-		string_view_ptr endIter{};
-		string_view_ptr iter{};
+		read_buffer_ptr rootIter{};
+		read_buffer_ptr endIter{};
+		read_buffer_ptr iter{};
+		uint64_t indentSize{};
 
 	  public:
 		JSONIFIER_INLINE json_iterator() noexcept = default;
@@ -568,175 +593,286 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew) noexcept : stringBuffer{ stringBufferNew }, rootIter{}, endIter{}, iter{} {
 		}
 
-		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, string_view_ptr rootIterNew, string_view_ptr endIterNew) noexcept
+		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, read_buffer_ptr rootIterNew, read_buffer_ptr endIterNew) noexcept
 			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, iter{ rootIterNew } {
 		}
 
-		JSONIFIER_INLINE void skipWhitespace() noexcept {
+		JSONIFIER_INLINE uint64_t currentDepth() const noexcept {
+			return currentObjectDepth + currentArrayDepth;
+		}
+
+		JSONIFIER_INLINE bool atWhitespace() noexcept {
 			if constexpr (parseOpts.nullTerminated) {
-				while (true) {
-					if (!whitespaceTable[static_cast<uint8_t>(*iter)]) [[likely]] {
-						return;
-					}
-					++iter;
-					if (*iter != ' ') {
-						continue;
-					}
-					uint64_t v;
-					while (iter + 8 <= endIter) {
-						std::memcpy(&v, iter, 8);
-						if (const uint64_t diff = v ^ allSpacesMask; diff) {
-							iter += std::countr_zero(diff) >> 3;
-							break;
-						}
-						iter += 8;
-					}
-					while (*iter == ' ') {
-						++iter;
-					}
+				return whitespaceTable[static_cast<uint8_t>(*iter)];
+			} else {
+				return iter < endIter && whitespaceTable[static_cast<uint8_t>(*iter)];
+			}
+		}
+
+		JSONIFIER_INLINE bool atNewline() noexcept {
+			if constexpr (parseOpts.nullTerminated) {
+				return newlineTable[static_cast<uint8_t>(*iter)];
+			} else {
+				return iter < endIter && newlineTable[static_cast<uint8_t>(*iter)];
+			}
+		}
+
+		JSONIFIER_INLINE read_buffer_ptr skipNewline(read_buffer_ptr iterLocal) noexcept {
+			if constexpr (parseOpts.nullTerminated) {
+				while (newlineTable[static_cast<uint8_t>(*iterLocal)]) {
+					++iterLocal;
 				}
 			} else {
-				while (true) {
-					if (iter < endIter && !whitespaceTable[static_cast<uint8_t>(*iter)]) [[likely]] {
-						return;
+				while (iterLocal < endIter && newlineTable[static_cast<uint8_t>(*iterLocal)]) {
+					++iterLocal;
+				}
+			}
+			return iterLocal;
+		}
+
+		JSONIFIER_INLINE uint64_t swarBroadcast() const noexcept {
+			return static_cast<uint64_t>(static_cast<uint8_t>(wsChar)) * 0x0101010101010101ull;
+		}
+
+		enum class indent_result_types : uint8_t {
+			success,
+			fail,
+		};
+
+		static constexpr uint32_t tag_shift	 = 62u;
+		static constexpr uintptr_t tag_mask	 = uintptr_t{ 0x3 } << tag_shift;
+		static constexpr uintptr_t addr_mask = ~tag_mask;
+
+		static_assert(sizeof(uintptr_t) == 8, "pointer tagging requires 64-bit pointers");
+
+		JSONIFIER_INLINE constexpr read_buffer_ptr set_tag(read_buffer_ptr ptr, indent_result_types status) noexcept {
+			const uintptr_t raw = std::bit_cast<uintptr_t>(ptr);
+			return std::bit_cast<read_buffer_ptr>((raw & addr_mask) | (static_cast<uintptr_t>(status) << tag_shift));
+		}
+
+		JSONIFIER_INLINE constexpr read_buffer_ptr strip_tag(uintptr_t ptr) noexcept {
+			return std::bit_cast<read_buffer_ptr>(ptr & addr_mask);
+		}
+
+		JSONIFIER_INLINE constexpr indent_result_types get_tag(const uintptr_t ptr) noexcept {
+			return static_cast<indent_result_types>((ptr & tag_mask) >> tag_shift);
+		}
+
+		enum class ws_sizes { eq_0, eq_1, eq_2, gt_2, eq_4, gt_4, eq_8, gt_8, eq_16, gt_16, eq_32 };
+
+		alignas(64) static constexpr ws_sizes wsSizes[33]{ ws_sizes::eq_0, ws_sizes::eq_1, ws_sizes::eq_2, ws_sizes::gt_2, ws_sizes::eq_4, ws_sizes::gt_4, ws_sizes::gt_4,
+			ws_sizes::gt_4, ws_sizes::eq_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::gt_8, ws_sizes::eq_16,
+			ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16,
+			ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::gt_16, ws_sizes::eq_32 };
+
+		JSONIFIER_INLINE read_buffer_ptr spanIsIndent(read_buffer_ptr iterLocal, uint64_t count) noexcept {
+			const uint64_t fill{ swarBroadcast() };
+			uint64_t remaining{ count };
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+			while (remaining > 32) {
+				const jsonifier_simd_int_256 charValue{ gatherValue<jsonifier_simd_int_256>(wsChar) };
+				const jsonifier_simd_int_256 iterValues{ gatherValuesU<jsonifier_simd_int_256>(iterLocal) };
+				const uint32_t mask{ static_cast<uint32_t>(opCmpEq(charValue, iterValues)) };
+				if (mask != std::numeric_limits<uint32_t>::max()) {
+					return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint32_t>(~mask)), indent_result_types::fail);
+				}
+				remaining -= 32;
+				iterLocal += 32;
+			}
+#else
+			while (remaining > 16) {
+				const jsonifier_simd_int_128 charValue{ gatherValue<jsonifier_simd_int_128>(wsChar) };
+				const jsonifier_simd_int_128 iterValues{ gatherValuesU<jsonifier_simd_int_128>(iterLocal) };
+				const uint16_t mask{ static_cast<uint16_t>(opCmpEq(charValue, iterValues)) };
+				if (mask != std::numeric_limits<uint16_t>::max()) {
+					return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint16_t>(~mask)), indent_result_types::fail);
+				}
+				remaining -= 16;
+				iterLocal += 16;
+			}
+#endif
+			switch (static_cast<uint64_t>(wsSizes[remaining])) {
+				case static_cast<uint64_t>(ws_sizes::eq_1): {
+					const bool equals{ static_cast<uint8_t>(*iterLocal) == static_cast<uint8_t>(fill) };
+					if (!equals) {
+						return set_tag(iterLocal, indent_result_types::fail);
 					}
-					if (iter >= endIter) {
-						return;
+					iterLocal += 1;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::eq_2): {
+					uint16_t chunk;
+					pow2_memcpy_wrapper<2>(&chunk, iterLocal);
+					const uint16_t diff{ static_cast<uint16_t>(chunk ^ static_cast<uint16_t>(fill)) };
+					if (diff) {
+						return set_tag(iterLocal + (simd::countrZeroUnsafe(diff) >> 3), indent_result_types::fail);
 					}
+					iterLocal += 2;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::gt_2): {
+					const uint64_t difference{ remaining - 2 };
+					uint32_t chunk;
+					pow2_memcpy_wrapper<2>(std::bit_cast<write_buffer_ptr>(&chunk), iterLocal);
+					pow2_memcpy_wrapper<2>(std::bit_cast<write_buffer_ptr>(&chunk) + 2, iterLocal + difference);
+					const uint32_t diff{ chunk ^ static_cast<uint32_t>(fill) };
+					if (diff) {
+						return set_tag(iterLocal + (simd::countrZeroUnsafe(diff) >> 3), indent_result_types::fail);
+					}
+					iterLocal += remaining;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::eq_4): {
+					uint32_t chunk;
+					pow2_memcpy_wrapper<4>(&chunk, iterLocal);
+					const uint32_t diff{ chunk ^ static_cast<uint32_t>(fill) };
+					if (diff) {
+						return set_tag(iterLocal + (simd::countrZeroUnsafe(diff) >> 3), indent_result_types::fail);
+					}
+					iterLocal += 4;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::gt_4): {
+					const uint64_t difference{ remaining - 4 };
+					uint64_t chunk;
+					pow2_memcpy_wrapper<4>(std::bit_cast<write_buffer_ptr>(&chunk), iterLocal);
+					pow2_memcpy_wrapper<4>(std::bit_cast<write_buffer_ptr>(&chunk) + 4, iterLocal + difference);
+					const uint64_t diff{ chunk ^ fill };
+					if (diff) {
+						return set_tag(iterLocal + (simd::countrZeroUnsafe(diff) >> 3), indent_result_types::fail);
+					}
+					iterLocal += remaining;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::eq_8): {
+					uint64_t chunk;
+					pow2_memcpy_wrapper<8>(&chunk, iterLocal);
+					const uint64_t diff{ chunk ^ fill };
+					if (diff) {
+						return set_tag(iterLocal + (simd::countrZeroUnsafe(diff) >> 3), indent_result_types::fail);
+					}
+					iterLocal += 8;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::gt_8): {
+					const uint64_t difference{ remaining - 8 };
+					const jsonifier_simd_int_128 charValue{ gatherValue<jsonifier_simd_int_128>(wsChar) };
+					jsonifier_simd_int_128 iterValues{};
+					pow2_memcpy_wrapper<8>(std::bit_cast<write_buffer_ptr>(&iterValues), iterLocal);
+					pow2_memcpy_wrapper<8>(std::bit_cast<write_buffer_ptr>(&iterValues) + 8, iterLocal + difference);
+					const uint16_t mask{ static_cast<uint16_t>(opCmpEq(charValue, iterValues)) };
+					if (mask != std::numeric_limits<uint16_t>::max()) {
+						return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint16_t>(~mask)), indent_result_types::fail);
+					}
+					iterLocal += remaining;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::eq_16): {
+					const jsonifier_simd_int_128 charValue{ gatherValue<jsonifier_simd_int_128>(wsChar) };
+					const jsonifier_simd_int_128 iterValues{ gatherValuesU<jsonifier_simd_int_128>(iterLocal) };
+					const uint16_t mask{ static_cast<uint16_t>(opCmpEq(charValue, iterValues)) };
+					if (mask != std::numeric_limits<uint16_t>::max()) {
+						return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint16_t>(~mask)), indent_result_types::fail);
+					}
+					iterLocal += 16;
+					break;
+				}
+#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2) || JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
+				case static_cast<uint64_t>(ws_sizes::gt_16): {
+					const uint64_t difference{ remaining - 16 };
+					const jsonifier_simd_int_256 charValue{ gatherValue<jsonifier_simd_int_256>(wsChar) };
+					jsonifier_simd_int_256 iterValues{};
+					pow2_memcpy_wrapper<16>(std::bit_cast<write_buffer_ptr>(&iterValues), iterLocal);
+					pow2_memcpy_wrapper<16>(std::bit_cast<write_buffer_ptr>(&iterValues) + 16, iterLocal + difference);
+					const uint32_t mask{ static_cast<uint32_t>(opCmpEq(charValue, iterValues)) };
+					if (mask != std::numeric_limits<uint32_t>::max()) {
+						return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint32_t>(~mask)), indent_result_types::fail);
+					}
+					iterLocal += remaining;
+					break;
+				}
+				case static_cast<uint64_t>(ws_sizes::eq_32): {
+					const jsonifier_simd_int_256 charValue{ gatherValue<jsonifier_simd_int_256>(wsChar) };
+					const jsonifier_simd_int_256 iterValues{ gatherValuesU<jsonifier_simd_int_256>(iterLocal) };
+					const uint32_t mask{ static_cast<uint32_t>(opCmpEq(charValue, iterValues)) };
+					if (mask != std::numeric_limits<uint32_t>::max()) {
+						return set_tag(iterLocal + simd::countrZeroUnsafe(static_cast<uint32_t>(~mask)), indent_result_types::fail);
+					}
+					iterLocal += 32;
+					break;
+				}
+#endif
+				default: {
+					return set_tag(iterLocal, indent_result_types::success);
+				}
+			}
+			return set_tag(iterLocal, indent_result_types::success);
+		}
+
+		JSONIFIER_INLINE void skipWhitespaceScalar() noexcept {
+			if constexpr (parseOpts.nullTerminated) {
+				while (whitespaceTable[static_cast<uint8_t>(*iter)]) {
 					++iter;
-					if (iter >= endIter || *iter != ' ') {
-						continue;
-					}
-					uint64_t v;
-					while (iter + 8 <= endIter) {
-						std::memcpy(&v, iter, 8);
-						if (const uint64_t diff = v ^ allSpacesMask; diff) {
-							iter += std::countr_zero(diff) >> 3;
-							break;
-						}
-						iter += 8;
-					}
-					while (iter < endIter && *iter == ' ') {
-						++iter;
-					}
+				}
+			} else {
+				while (iter < endIter && whitespaceTable[static_cast<uint8_t>(*iter)]) {
+					++iter;
 				}
 			}
 		}
 
-		JSONIFIER_INLINE sep_result collectObjectSeparator() noexcept {
-			skipWhitespace();
-			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
-				if (c == ',') [[likely]] {
-					++iter;
-					skipWhitespace();
-					return sep_result::cont;
-				}
-				if (c == '}') {
-					--currentObjectDepth;
-					++iter;
-					return sep_result::ended;
-				}
-			} else {
-				if (iter < endIter) [[likely]] {
-					const char c = *iter;
-					if (c == ',') [[likely]] {
-						++iter;
-						skipWhitespace();
-						return sep_result::cont;
-					}
-					if (c == '}') {
-						--currentObjectDepth;
-						++iter;
-						return sep_result::ended;
-					}
-				}
+		JSONIFIER_INLINE void skipWhitespacePredicted() noexcept {
+			skipWhitespacePredicted(currentDepth());
+		}
+
+		JSONIFIER_INLINE void skipWhitespacePredictedClose() noexcept {
+			if (atWhitespace()) {
+				const uint64_t depth{ currentDepth() };
+				skipWhitespacePredicted(depth - (depth != 0));
 			}
-			static_cast<void>(reject<parse_statuses::missing_comma>());
-			return sep_result::error;
 		}
 
-		JSONIFIER_INLINE sep_result collectArraySeparator() noexcept {
-			skipWhitespace();
-			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
-				if (c == ',') [[likely]] {
-					++iter;
-					skipWhitespace();
-					return sep_result::cont;
-				}
-				if (c == ']') {
-					--currentArrayDepth;
-					++iter;
-					return sep_result::ended;
-				}
-			} else {
-				if (iter < endIter) [[likely]] {
-					const char c = *iter;
-					if (c == ',') [[likely]] {
-						++iter;
-						skipWhitespace();
-						return sep_result::cont;
+		JSONIFIER_INLINE void skipWhitespacePredicted(const uint64_t depth) noexcept {
+			if (atNewline()) [[likely]] {
+				const read_buffer_ptr probe{ skipNewline(iter) };
+				const uint64_t predicted{ indentSize * depth };
+				if (probe + predicted < endIter) [[likely]] {
+					uintptr_t res{ std::bit_cast<uintptr_t>(spanIsIndent(probe, predicted)) };
+					indent_result_types result{ get_tag(res) };
+					auto iterNew = strip_tag(res);
+					if (result == indent_result_types::success && !whitespaceTable[static_cast<uint8_t>(*iterNew)]) [[likely]] {
+						iter = iterNew;
+						return;
 					}
-					if (c == ']') {
-						--currentArrayDepth;
-						++iter;
-						return sep_result::ended;
-					}
+					iter = probe;
+					skipWhitespaceScalar();
+					return;
 				}
+				iter = probe;
 			}
-			static_cast<void>(reject<parse_statuses::missing_comma>());
-			return sep_result::error;
+			skipWhitespaceScalar();
 		}
 
-		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEquals() noexcept {
-			skipWhitespace();
-			return checkChar<charToCheck>() ? (static_cast<void>(++iter), true) : false;
+		JSONIFIER_INLINE void collectIndentSizeRoot() noexcept {
+			if (!atNewline()) {
+				return;
+			}
+			read_buffer_ptr probe{ skipNewline(iter) };
+			if (probe >= endIter || !whitespaceTable[static_cast<uint8_t>(*probe)]) {
+				return;
+			}
+			wsChar = *probe;
+			uint64_t count{};
+			while (probe < endIter && *probe == wsChar) {
+				++probe;
+				++count;
+			}
+			indentSize = count;
 		}
 
-		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEqualsNoWs() noexcept {			
-			return checkChar<charToCheck>() ? (static_cast<void>(++iter), true) : false;
-		}
-
-		JSONIFIER_INLINE string_view_ptr& currentPtr() noexcept {
-			return iter;
-		}
-
-		JSONIFIER_INLINE string_view_ptr endPtr() const noexcept {
-			return endIter;
-		}
-
-		JSONIFIER_INLINE string_buffer_type& getStringBuffer() noexcept {
-			return *stringBuffer;
-		}
-
-		JSONIFIER_INLINE std::vector<error>& getErrors() noexcept {
-			return *errors;
-		}
-
-		JSONIFIER_INLINE bool hasMoreInput() noexcept {
-			return iter < endIter ? true : reject<parse_statuses::unexpected_end_of_input>();
-		}
-
-		JSONIFIER_INLINE bool anyInput() noexcept {
-			return rootIter && rootIter != endIter ? true : reject<parse_statuses::no_input>();
-		}
-
-		JSONIFIER_INLINE bool checkIfDoneImpl() noexcept {
-			skipWhitespace();
-			return currentObjectDepth == 0 && currentArrayDepth == 0 && iter >= endIter;
-		}
-
-		JSONIFIER_INLINE bool checkIfDone() noexcept {
-			return checkIfDoneImpl() ? true : reject<parse_statuses::unfinished_input>();
-		}
-
-		JSONIFIER_INLINE bool notAtEndPre() noexcept {
-			return iter < endIter;
-		}
-
-		JSONIFIER_INLINE bool notAtEnd() noexcept {
-			return checkCurrentDepth() && notAtEndPre();
+		JSONIFIER_INLINE void skipWhitespaceRoot() noexcept {
+			collectIndentSizeRoot();
+			skipWhitespaceScalar();
 		}
 
 		template<char charToCheck> JSONIFIER_INLINE bool checkCharUnsafe() noexcept {
@@ -769,6 +905,151 @@ namespace jsonifier::internal {
 			}
 		}
 
+		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEqualsNoWs() noexcept {
+			return checkChar<charToCheck>() ? (static_cast<void>(++iter), true) : false;
+		}
+
+		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEquals() noexcept {
+			skipWhitespaceScalar();
+			return checkChar<charToCheck>() ? (static_cast<void>(++iter), true) : false;
+		}
+
+		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEqualsNoWsFirst() noexcept {
+			if (incrementIfEqualsNoWs<charToCheck>()) [[likely]] {
+				return true;
+			}
+			if (atWhitespace()) [[unlikely]] {
+				skipWhitespaceScalar();
+				return incrementIfEqualsNoWs<charToCheck>();
+			}
+			return false;
+		}
+
+		template<char charToCheck> JSONIFIER_INLINE bool incrementIfEqualsRoot() noexcept {
+			if (!incrementIfEqualsNoWs<charToCheck>()) [[unlikely]] {
+				if (!atWhitespace()) {
+					return false;
+				}
+				skipWhitespaceScalar();
+				if (!incrementIfEqualsNoWs<charToCheck>()) {
+					return false;
+				}
+			}
+			skipWhitespaceRoot();
+			return true;
+		}
+
+		JSONIFIER_INLINE sep_result collectObjectSeparator() noexcept {
+			if (atWhitespace()) [[unlikely]] {
+				skipWhitespaceScalar();
+			}
+			if constexpr (parseOpts.nullTerminated) {
+				const char c = *iter;
+				if (c == ',') [[likely]] {
+					++iter;
+					skipWhitespacePredicted();
+					return sep_result::cont;
+				}
+				if (c == '}') {
+					--currentObjectDepth;
+					++iter;
+					return sep_result::ended;
+				}
+			} else {
+				if (iter < endIter) [[likely]] {
+					const char c = *iter;
+					if (c == ',') [[likely]] {
+						++iter;
+						skipWhitespacePredicted();
+						return sep_result::cont;
+					}
+					if (c == '}') {
+						--currentObjectDepth;
+						++iter;
+						return sep_result::ended;
+					}
+				}
+			}
+			static_cast<void>(reject<parse_statuses::missing_comma>());
+			return sep_result::error;
+		}
+
+		JSONIFIER_INLINE sep_result collectArraySeparator() noexcept {
+			skipWhitespacePredictedClose();
+			if constexpr (parseOpts.nullTerminated) {
+				const char c = *iter;
+				if (c == ',') [[likely]] {
+					++iter;
+					skipWhitespacePredicted();
+					return sep_result::cont;
+				}
+				if (c == ']') {
+					--currentArrayDepth;
+					++iter;
+					return sep_result::ended;
+				}
+			} else {
+				if (iter < endIter) [[likely]] {
+					const char c = *iter;
+					if (c == ',') [[likely]] {
+						++iter;
+						skipWhitespacePredicted();
+						return sep_result::cont;
+					}
+					if (c == ']') {
+						--currentArrayDepth;
+						++iter;
+						return sep_result::ended;
+					}
+				}
+			}
+			static_cast<void>(reject<parse_statuses::missing_comma>());
+			return sep_result::error;
+		}
+
+		JSONIFIER_INLINE read_buffer_ptr& currentPtr() noexcept {
+			return iter;
+		}
+
+		JSONIFIER_INLINE read_buffer_ptr endPtr() const noexcept {
+			return endIter;
+		}
+
+		JSONIFIER_INLINE string_buffer_type& getStringBuffer() noexcept {
+			return *stringBuffer;
+		}
+
+		JSONIFIER_INLINE std::vector<error>& getErrors() noexcept {
+			return *errors;
+		}
+
+		JSONIFIER_INLINE bool hasMoreInput() noexcept {
+			return iter < endIter ? true : reject<parse_statuses::unexpected_end_of_input>();
+		}
+
+		JSONIFIER_INLINE bool anyInput() noexcept {
+			return rootIter && rootIter != endIter ? true : reject<parse_statuses::no_input>();
+		}
+
+		JSONIFIER_INLINE bool checkIfDoneImpl() noexcept {
+			if (atWhitespace()) [[unlikely]] {
+				skipWhitespaceScalar();
+			}
+			return currentObjectDepth == 0 && currentArrayDepth == 0 && iter >= endIter;
+		}
+
+		JSONIFIER_INLINE bool checkIfDone() noexcept {
+			return checkIfDoneImpl() ? true : reject<parse_statuses::unfinished_input>();
+		}
+
+		JSONIFIER_INLINE bool notAtEndPre() noexcept {
+			return iter < endIter;
+		}
+
+		JSONIFIER_INLINE bool notAtEnd() noexcept {
+			return checkCurrentDepth() && notAtEndPre();
+		}
+
 		JSONIFIER_INLINE bool checkCurrentDepth() noexcept {
 			return currentObjectDepth + currentArrayDepth < static_cast<uint64_t>(parseOpts.maxDepth) ? true : reject<parse_statuses::exceeded_max_depth>();
 		}
@@ -796,7 +1077,7 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool skipValue() noexcept {
-			skipWhitespace();
+			skipWhitespaceScalar();
 			if constexpr (parseOpts.nullTerminated) {
 				if (*iter == '\0') [[unlikely]] {
 					return reject<parse_statuses::unexpected_end_of_input>();
@@ -824,7 +1105,7 @@ namespace jsonifier::internal {
 								continue;
 							}
 							if (whitespaceTable[static_cast<uint8_t>(c)]) {
-								skipWhitespace();
+								skipWhitespaceScalar();
 								continue;
 							}
 							++iter;
@@ -846,7 +1127,7 @@ namespace jsonifier::internal {
 								continue;
 							}
 							if (whitespaceTable[static_cast<uint8_t>(c)]) {
-								skipWhitespace();
+								skipWhitespaceScalar();
 								continue;
 							}
 							++iter;
@@ -886,7 +1167,9 @@ namespace jsonifier::internal {
 
 		JSONIFIER_INLINE bool skipRemainingObject() noexcept {
 			while (true) {
-				skipWhitespace();
+				if (atWhitespace()) [[unlikely]] {
+					skipWhitespaceScalar();
+				}
 				if constexpr (parseOpts.nullTerminated) {
 					if (*iter != '"') [[unlikely]] {
 						return reject<parse_statuses::missing_key_start>();
@@ -919,12 +1202,14 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
 			using value_type = number_type;
-			skipWhitespace();
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			if (atWhitespace()) [[unlikely]] {
+				skipWhitespaceScalar();
+			}
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, endIter); iterNew) {
 							iter = iterNew;
 							return true;
@@ -942,7 +1227,7 @@ namespace jsonifier::internal {
 						}
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, iter, endIter); iterNew) {
 							iter = iterNew;
 							return true;
@@ -961,16 +1246,16 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, iter, endIter); iterNew) {
+					if (auto iterNew = float_parser<double>::parseFloat(temp, iter, endIter); iterNew) {
 						iter  = iterNew;
 						value = static_cast<value_type>(temp);
 						return true;
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, iter, endIter); iterNew) {
+					if (auto iterNew = float_parser<value_type>::parseFloat(value, iter, endIter); iterNew) {
 						iter = iterNew;
 						return true;
 					} else {
@@ -980,16 +1265,16 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = endIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = endIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							iter = iterNew;
-							skipWhitespace();
+							skipWhitespaceScalar();
 							return true;
 						}
 						return reject<parse_statuses::invalid_number_value>();
@@ -998,16 +1283,16 @@ namespace jsonifier::internal {
 						if (auto iterNew = integer_parser<uint64_t>::parseInt(i, valueStart, valueEnd); iterNew) {
 							value = static_cast<value_type>(i);
 							iter  = iterNew;
-							skipWhitespace();
+							skipWhitespaceScalar();
 							return iterNew == valueEnd;
 						}
 						return reject<parse_statuses::invalid_number_value>();
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							iter = iterNew;
-							skipWhitespace();
+							skipWhitespaceScalar();
 							return iterNew == valueEnd;
 						}
 						return reject<parse_statuses::invalid_number_value>();
@@ -1016,26 +1301,26 @@ namespace jsonifier::internal {
 						if (auto iterNew = integer_parser<int64_t>::parseInt(i, valueStart, valueEnd); iterNew) {
 							value = static_cast<value_type>(i);
 							iter  = iterNew;
-							skipWhitespace();
+							skipWhitespaceScalar();
 							return iterNew == valueEnd;
 						}
 						return reject<parse_statuses::invalid_number_value>();
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						value = static_cast<value_type>(temp);
 						iter  = iterNew;
-						skipWhitespace();
+						skipWhitespaceScalar();
 						return iterNew == valueEnd;
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						iter = iterNew;
-						skipWhitespace();
+						skipWhitespaceScalar();
 						return iterNew == valueEnd;
 					}
 					return reject<parse_statuses::invalid_number_value>();
@@ -1043,13 +1328,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (endIter - ptr == 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr	 = currentPtr();
+			const auto remaining = endIter - ptr;
+			if (remaining < 4) [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal && remaining == 4) {
 				value = true;
 				iter += 4;
 				return true;
-			} else if (endIter - ptr == 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && remaining == 5 && ptr[4] == 'e') {
 				value = false;
 				iter += 5;
 				return true;
@@ -1058,7 +1354,8 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool arrayMaybeEnd() noexcept {
-			return incrementIfEquals<']'>();
+			skipWhitespacePredictedClose();
+			return incrementIfEqualsNoWs<']'>();
 		}
 
 		JSONIFIER_INLINE bool collectArrayComma() noexcept {
@@ -1074,70 +1371,110 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool collectObjectColon() noexcept {
-			return incrementIfEquals<':'>() ? true : reject<parse_statuses::missing_colon>();
+			static constexpr uint16_t colonSpace{ std::endian::native == std::endian::little
+					? static_cast<uint16_t>(static_cast<uint16_t>(':') | (static_cast<uint16_t>(' ') << 8))
+					: static_cast<uint16_t>((static_cast<uint16_t>(':') << 8) | static_cast<uint16_t>(' ')) };
+			if (endIter - iter >= 2) [[likely]] {
+				uint16_t chunk;
+				pow2_memcpy_wrapper<2>(&chunk, iter);
+				if (chunk == colonSpace) [[likely]] {
+					iter += 2;
+					return true;
+				}
+			}
+			return incrementIfEqualsNoWsFirst<':'>() ? true : reject<parse_statuses::missing_colon>();
 		}
 
 		JSONIFIER_INLINE bool objectStart() noexcept {
-			return incrementIfEquals<'{'>() ? true : reject<parse_statuses::missing_object_start>();
+			if (!incrementIfEquals<'{'>()) {
+				return reject<parse_statuses::missing_object_start>();
+			}
+			skipWhitespacePredicted();
+			return true;
 		}
 
 		JSONIFIER_INLINE bool arrayStart() noexcept {
-			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
+			if (!incrementIfEquals<'['>()) {
+				return reject<parse_statuses::missing_array_start>();
+			}
+			skipWhitespacePredicted();
+			return true;
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
-			skipWhitespace();
-			if (endIter - iter >= 4 && compareStringAsInt<"true">(iter)) {
-				value = true;
-				iter += 4;
-				return true;
-			} else if (endIter - iter >= 5 && compareStringAsInt<"fals">(iter) && iter[4] == 'e') {
-				value = false;
-				iter += 5;
-				return true;
+		JSONIFIER_INLINE bool objectStartRoot() noexcept {
+			return incrementIfEqualsRoot<'{'>() ? true : reject<parse_statuses::missing_object_start>();
+		}
+
+		JSONIFIER_INLINE bool arrayStartRoot() noexcept {
+			return incrementIfEqualsRoot<'['>() ? true : reject<parse_statuses::missing_array_start>();
+		}
+
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			skipWhitespaceScalar();
+			if (endIter - iter < 4) [[unlikely]] {
+				return reject<parse_statuses::unexpected_string_end>();
 			}
-			return reject<parse_statuses::invalid_bool_value>();
+
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, iter);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			iter += 4;
+			if (comparison == trueVal) {
+				value = true;
+			} else if (comparison == falseVal && (*iter == 'e')) [[likely]] {
+				value = false;
+				++iter;
+			} else [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			return true;
 		}
 
 		JSONIFIER_INLINE bool iterateNull() noexcept {
-			skipWhitespace();
-			if (endIter - iter >= 4 && compareStringAsInt<"null">(iter)) [[likely]] {
-				iter += 4;
+			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
+			skipWhitespaceScalar();
+			if (endIter - iter < 4) [[unlikely]] {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, iter);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			iter += 4;
+			if (comparison == nullVal) [[likely]] {
 				return true;
-			} else {
+			} else [[unlikely]] {
 				return reject<parse_statuses::invalid_null_value>();
 			}
 		}
 
-		template<jsonifier::concepts::string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
+		template<string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
 			++iter;
 			if (iter >= endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
 			}
-			auto iterStart = iter;
-			const auto res = string_scanner<parseOpts>::impl(iter, endIter);
-			if (!res.valid) [[unlikely]] {
+			const auto iterStart = iter;
+			auto& scratch		 = getStringBuffer();
+			const auto needed	 = static_cast<uint64_t>(endIter - iter) + simdBytesPerStep;
+			if (scratch.size() < needed) [[unlikely]] {
+				scratch.resize(needed);
+			}
+			const auto res = string_scanner<parseOpts>::impl(iter, endIter, scratch.data());
+			if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				iter = iterStart;
 				return reject<parse_statuses::invalid_string_characters>();
 			}
-			if constexpr (concepts::has_resize<string_type>) {
-				if (value.size() != res.rawLength) [[unlikely]] {
-					value.resize(res.rawLength);
+			if constexpr (has_resize<string_type>) {
+				if (value.size() != res.outLength) [[unlikely]] {
+					value.resize(res.outLength);
 				}
 			}
-			if (res.firstEscape == string_scanner<parseOpts>::npos) [[likely]] {
-				std::memcpy(value.data(), iter, res.rawLength);
-			} else [[unlikely]] {
-				std::memcpy(value.data(), iter, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(iter + res.firstEscape, iter + res.rawLength, value.data() + res.firstEscape);
-				if (!finalPtr) [[unlikely]] {
-					iter = iterStart;
-					return reject<parse_statuses::invalid_string_characters>();
-				}
-				if constexpr (concepts::has_resize<string_type>) {
-					value.resize(static_cast<uint64_t>(finalPtr - value.data()));
-				}
-			}
+			memcpy_wrapper(value.data(), scratch.data(), res.outLength);
 			iter += res.rawLength + 1;
 			if (iter > endIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
@@ -1146,7 +1483,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	static constexpr auto validPostPrimitiveTable{ [] {
+	alignas(64) static constexpr auto validPostPrimitiveTable{ [] {
 		array<bool, 256> table{};
 		table[static_cast<uint8_t>(',')]  = true;
 		table[static_cast<uint8_t>('}')]  = true;
@@ -1165,8 +1502,8 @@ namespace jsonifier::internal {
 		structural_index_ptr rootIter{};
 		structural_index_ptr endIter{};
 		structural_index_ptr iter{};
-		string_view_ptr stringRootIter{};
-		string_view_ptr stringEndIter{};
+		read_buffer_ptr stringRootIter{};
+		read_buffer_ptr stringEndIter{};
 		uint64_t currentArrayDepth{};
 		uint64_t currentObjectDepth{};
 
@@ -1174,7 +1511,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE json_iterator() noexcept = default;
 
 		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, structural_index_ptr rootIterNew, structural_index_ptr endIterNew,
-			structural_index_ptr iterNew, string_view_ptr stringRootIterNew, string_view_ptr stringEndIterNew) noexcept
+			structural_index_ptr iterNew, read_buffer_ptr stringRootIterNew, read_buffer_ptr stringEndIterNew) noexcept
 			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, iter{ iterNew }, stringRootIter{ stringRootIterNew },
 			  stringEndIter{ stringEndIterNew } {
 		}
@@ -1195,11 +1532,11 @@ namespace jsonifier::internal {
 			return *errors;
 		}
 
-		JSONIFIER_INLINE string_view_ptr currentPtr() noexcept {
+		JSONIFIER_INLINE read_buffer_ptr currentPtr() noexcept {
 			return stringRootIter + *iter;
 		}
 
-		JSONIFIER_INLINE string_view_ptr endPtr() const noexcept {
+		JSONIFIER_INLINE read_buffer_ptr endPtr() const noexcept {
 			return stringEndIter;
 		}
 
@@ -1319,13 +1656,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = (iter + 1) < endIter ? stringRootIter + *(iter + 1) : stringEndIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = (iter + 1) < endIter ? stringRootIter + *(iter + 1) : stringEndIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 								return reject<parse_statuses::missing_comma>();
@@ -1349,7 +1686,7 @@ namespace jsonifier::internal {
 						}
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 								return reject<parse_statuses::missing_comma>();
@@ -1374,9 +1711,9 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 							return reject<parse_statuses::missing_comma>();
 						}
@@ -1386,7 +1723,7 @@ namespace jsonifier::internal {
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 							return reject<parse_statuses::missing_comma>();
 						}
@@ -1399,13 +1736,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = stringEndIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = stringEndIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							++iter;
 							return iterNew == valueEnd ? true : reject<parse_statuses::unfinished_input>();
@@ -1421,7 +1758,7 @@ namespace jsonifier::internal {
 						return reject<parse_statuses::invalid_number_value>();
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							++iter;
 							return iterNew == valueEnd ? true : reject<parse_statuses::unfinished_input>();
@@ -1438,16 +1775,16 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						value = static_cast<value_type>(temp);
 						++iter;
 						return iterNew == valueEnd ? true : reject<parse_statuses::unfinished_input>();
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						++iter;
 						return iterNew == valueEnd ? true : reject<parse_statuses::unfinished_input>();
 					}
@@ -1456,13 +1793,24 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr == 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr	 = currentPtr();
+			const auto remaining = stringEndIter - ptr;
+			if (remaining < 4) [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal && remaining == 4) {
 				value = true;
 				++iter;
 				return true;
-			} else if (stringEndIter - ptr == 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && remaining == 5 && ptr[4] == 'e') {
 				value = false;
 				++iter;
 				return true;
@@ -1475,6 +1823,14 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool arrayStart() noexcept {
+			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
+		}
+
+		JSONIFIER_INLINE bool objectStartRoot() noexcept {
+			return incrementIfEquals<'{'>() ? true : reject<parse_statuses::missing_object_start>();
+		}
+
+		JSONIFIER_INLINE bool arrayStartRoot() noexcept {
 			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
 		}
 
@@ -1498,56 +1854,70 @@ namespace jsonifier::internal {
 			return incrementIfEquals<':'>() ? true : reject<parse_statuses::missing_colon>();
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr >= 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr = currentPtr();
+			if (stringEndIter - ptr < 4) {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal) {
 				value = true;
 				++iter;
-				return true;
-			} else if (stringEndIter - ptr >= 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && (*(ptr + 4) == 'e')) [[likely]] {
 				value = false;
 				++iter;
-				return true;
+			} else [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
 			}
-			return reject<parse_statuses::invalid_bool_value>();
+			return true;
 		}
 
 		JSONIFIER_INLINE bool iterateNull() noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr >= 4 && compareStringAsInt<"null">(ptr)) [[likely]] {
+			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
+			read_buffer_ptr ptr = currentPtr();
+			if (stringEndIter - ptr < 4) {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == nullVal) [[likely]] {
 				++iter;
 				return true;
-			} else {
+			} else [[unlikely]] {
 				return reject<parse_statuses::invalid_null_value>();
 			}
 		}
 
-		template<jsonifier::concepts::string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
-			string_view_ptr strPtr = currentPtr() + 1;
+		template<string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
+			read_buffer_ptr strPtr = currentPtr() + 1;
 			if (strPtr >= stringEndIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
 			}
-			const auto res = string_scanner<parseOpts>::impl(strPtr, stringEndIter);
-			if (!res.valid) [[unlikely]] {
+			auto& scratch	  = getStringBuffer();
+			const auto needed = static_cast<uint64_t>(stringEndIter - strPtr) + simdBytesPerStep;
+			if (scratch.size() < needed) [[unlikely]] {
+				scratch.resize(needed);
+			}
+			const auto res = string_scanner<parseOpts>::impl(strPtr, stringEndIter, scratch.data());
+			if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				return reject<parse_statuses::invalid_string_characters>();
 			}
-			if constexpr (concepts::has_resize<string_type>) {
-				if (value.size() != res.rawLength) [[unlikely]] {
-					value.resize(res.rawLength);
+			if constexpr (has_resize<string_type>) {
+				if (value.size() != res.outLength) [[unlikely]] {
+					value.resize(res.outLength);
 				}
 			}
-			if (res.firstEscape == string_scanner<parseOpts>::npos) [[likely]] {
-				std::memcpy(value.data(), strPtr, res.rawLength);
-			} else [[unlikely]] {
-				std::memcpy(value.data(), strPtr, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
-				if (!finalPtr) [[unlikely]] {
-					return reject<parse_statuses::invalid_string_characters>();
-				}
-				if constexpr (concepts::has_resize<string_type>) {
-					value.resize(static_cast<uint64_t>(finalPtr - value.data()));
-				}
-			}
+			memcpy_wrapper(value.data(), scratch.data(), res.outLength);
 			++iter;
 			return true;
 		}
@@ -1596,8 +1966,8 @@ namespace jsonifier::internal {
 		structural_index_ptr rootIter{};
 		structural_index_ptr endIter{};
 		structural_index_ptr iter{};
-		string_view_ptr stringRootIter{};
-		string_view_ptr stringEndIter{};
+		read_buffer_ptr stringRootIter{};
+		read_buffer_ptr stringEndIter{};
 		uint64_t currentArrayDepth{};
 		uint64_t currentObjectDepth{};
 
@@ -1605,7 +1975,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE json_iterator() noexcept = default;
 
 		JSONIFIER_INLINE json_iterator(string_buffer_type* stringBufferNew, std::vector<error>* errorsNew, structural_index_ptr rootIterNew, structural_index_ptr endIterNew,
-			structural_index_ptr iterNew, string_view_ptr stringRootIterNew, string_view_ptr stringEndIterNew) noexcept
+			structural_index_ptr iterNew, read_buffer_ptr stringRootIterNew, read_buffer_ptr stringEndIterNew) noexcept
 			: stringBuffer{ stringBufferNew }, errors{ errorsNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, iter{ iterNew }, stringRootIter{ stringRootIterNew },
 			  stringEndIter{ stringEndIterNew } {
 		}
@@ -1626,11 +1996,11 @@ namespace jsonifier::internal {
 			return *errors;
 		}
 
-		JSONIFIER_INLINE string_view_ptr currentPtr() noexcept {
+		JSONIFIER_INLINE read_buffer_ptr currentPtr() noexcept {
 			return stringRootIter + *iter;
 		}
 
-		JSONIFIER_INLINE string_view_ptr endPtr() const noexcept {
+		JSONIFIER_INLINE read_buffer_ptr endPtr() const noexcept {
 			return stringEndIter;
 		}
 
@@ -1750,13 +2120,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = (iter + 1) < endIter ? stringRootIter + *(iter + 1) : stringEndIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = (iter + 1) < endIter ? stringRootIter + *(iter + 1) : stringEndIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 								return reject<parse_statuses::missing_comma>();
@@ -1780,7 +2150,7 @@ namespace jsonifier::internal {
 						}
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 								return reject<parse_statuses::missing_comma>();
@@ -1805,9 +2175,9 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 							return reject<parse_statuses::missing_comma>();
 						}
@@ -1817,7 +2187,7 @@ namespace jsonifier::internal {
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						if (iterNew < stringEndIter && !validPostPrimitiveTable[static_cast<uint8_t>(*iterNew)]) [[unlikely]] {
 							return reject<parse_statuses::missing_comma>();
 						}
@@ -1830,13 +2200,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<jsonifier::concepts::num_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
+		template<number_t number_type> JSONIFIER_INLINE bool iterateRootNumber(number_type& value) noexcept {
 			using value_type		   = number_type;
-			string_view_ptr valueStart = currentPtr();
-			string_view_ptr valueEnd   = stringEndIter;
-			if constexpr (concepts::integer_t<value_type>) {
-				if constexpr (concepts::uint_types<value_type>) {
-					if constexpr (concepts::uint64_types<value_type>) {
+			read_buffer_ptr valueStart = currentPtr();
+			read_buffer_ptr valueEnd   = stringEndIter;
+			if constexpr (integer_t<value_type>) {
+				if constexpr (uint_types<value_type>) {
+					if constexpr (uint64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							++iter;
 							iterNew = skipWhitespace(iterNew);
@@ -1854,7 +2224,7 @@ namespace jsonifier::internal {
 						return reject<parse_statuses::invalid_number_value>();
 					}
 				} else {
-					if constexpr (concepts::int64_types<value_type>) {
+					if constexpr (int64_types<value_type>) {
 						if (auto iterNew = integer_parser<value_type>::parseInt(value, valueStart, valueEnd); iterNew) {
 							++iter;
 							iterNew = skipWhitespace(iterNew);
@@ -1873,9 +2243,9 @@ namespace jsonifier::internal {
 					}
 				}
 			} else {
-				if constexpr (std::is_volatile_v<jsonifier::internal::remove_reference_t<decltype(value)>>) {
+				if constexpr (std::is_volatile_v<internal::remove_reference_t<decltype(value)>>) {
 					double temp;
-					if (auto iterNew = parseFloat(temp, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<double>::parseFloat(temp, valueStart, valueEnd); iterNew) {
 						value = static_cast<value_type>(temp);
 						++iter;
 						iterNew = skipWhitespace(iterNew);
@@ -1883,7 +2253,7 @@ namespace jsonifier::internal {
 					}
 					return reject<parse_statuses::invalid_number_value>();
 				} else {
-					if (auto iterNew = parseFloat(value, valueStart, valueEnd); iterNew) {
+					if (auto iterNew = internal::float_parser<value_type>::parseFloat(value, valueStart, valueEnd); iterNew) {
 						++iter;
 						iterNew = skipWhitespace(iterNew);
 						return iterNew == valueEnd ? true : reject<parse_statuses::unfinished_input>();
@@ -1893,7 +2263,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		JSONIFIER_INLINE string_view_ptr skipWhitespace(string_view_ptr stringViewPtr) noexcept {
+		JSONIFIER_INLINE read_buffer_ptr skipWhitespace(read_buffer_ptr stringViewPtr) noexcept {
 			if constexpr (parseOpts.nullTerminated) {
 				while (whitespaceTable[static_cast<uint8_t>(*stringViewPtr)]) {
 					++stringViewPtr;
@@ -1906,13 +2276,24 @@ namespace jsonifier::internal {
 			return stringViewPtr;
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr == 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateRootBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr	 = currentPtr();
+			const auto remaining = stringEndIter - ptr;
+			if (remaining < 4) [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal && remaining == 4) {
 				value = true;
 				++iter;
 				return true;
-			} else if (stringEndIter - ptr == 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && remaining == 5 && ptr[4] == 'e') {
 				value = false;
 				++iter;
 				return true;
@@ -1925,6 +2306,14 @@ namespace jsonifier::internal {
 		}
 
 		JSONIFIER_INLINE bool arrayStart() noexcept {
+			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
+		}
+
+		JSONIFIER_INLINE bool objectStartRoot() noexcept {
+			return incrementIfEquals<'{'>() ? true : reject<parse_statuses::missing_object_start>();
+		}
+
+		JSONIFIER_INLINE bool arrayStartRoot() noexcept {
 			return incrementIfEquals<'['>() ? true : reject<parse_statuses::missing_array_start>();
 		}
 
@@ -1948,56 +2337,70 @@ namespace jsonifier::internal {
 			return incrementIfEquals<':'>() ? true : reject<parse_statuses::missing_colon>();
 		}
 
-		template<jsonifier::concepts::bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr >= 4 && compareStringAsInt<"true">(ptr)) {
+		template<bool_t bool_type> JSONIFIER_INLINE bool iterateBool(bool_type& value) noexcept {
+			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
+			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
+			read_buffer_ptr ptr = currentPtr();
+			if (stringEndIter - ptr < 4) {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == trueVal) {
 				value = true;
 				++iter;
-				return true;
-			} else if (stringEndIter - ptr >= 5 && compareStringAsInt<"fals">(ptr) && ptr[4] == 'e') {
+			} else if (comparison == falseVal && (*(ptr + 4) == 'e')) [[likely]] {
 				value = false;
 				++iter;
-				return true;
+			} else [[unlikely]] {
+				return reject<parse_statuses::invalid_bool_value>();
 			}
-			return reject<parse_statuses::invalid_bool_value>();
+			return true;
 		}
 
 		JSONIFIER_INLINE bool iterateNull() noexcept {
-			string_view_ptr ptr = currentPtr();
-			if (stringEndIter - ptr >= 4 && compareStringAsInt<"null">(ptr)) [[likely]] {
+			static constexpr uint32_t nullVal{ 0b01101100'01101100'01110101'01101110 };
+			read_buffer_ptr ptr = currentPtr();
+			if (stringEndIter - ptr < 4) {
+				return reject<parse_statuses::unexpected_string_end>();
+			}
+			uint32_t comparison;
+			pow2_memcpy_wrapper<4>(&comparison, ptr);
+			if constexpr (std::endian::native == std::endian::big) {
+				comparison = byteswap(comparison);
+			}
+			if (comparison == nullVal) [[likely]] {
 				++iter;
 				return true;
-			} else {
+			} else [[unlikely]] {
 				return reject<parse_statuses::invalid_null_value>();
 			}
 		}
 
-		template<jsonifier::concepts::string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
-			string_view_ptr strPtr = currentPtr() + 1;
+		template<string_t string_type> JSONIFIER_INLINE bool iterateString(string_type& value) noexcept {
+			read_buffer_ptr strPtr = currentPtr() + 1;
 			if (strPtr >= stringEndIter) [[unlikely]] {
 				return reject<parse_statuses::unexpected_end_of_input>();
 			}
-			const auto res = string_scanner<parseOpts>::impl(strPtr, stringEndIter);
-			if (!res.valid) [[unlikely]] {
+			auto& scratch	  = getStringBuffer();
+			const auto needed = static_cast<uint64_t>(stringEndIter - strPtr) + simdBytesPerStep;
+			if (scratch.size() < needed) [[unlikely]] {
+				scratch.resize(needed);
+			}
+			const auto res = string_scanner<parseOpts>::impl(strPtr, stringEndIter, scratch.data());
+			if (res.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				return reject<parse_statuses::invalid_string_characters>();
 			}
-			if constexpr (concepts::has_resize<string_type>) {
-				if (value.size() != res.rawLength) [[unlikely]] {
-					value.resize(res.rawLength);
+			if constexpr (has_resize<string_type>) {
+				if (value.size() != res.outLength) [[unlikely]] {
+					value.resize(res.outLength);
 				}
 			}
-			if (res.firstEscape == string_scanner<parseOpts>::npos) [[likely]] {
-				std::memcpy(value.data(), strPtr, res.rawLength);
-			} else [[unlikely]] {
-				std::memcpy(value.data(), strPtr, res.firstEscape);
-				const auto finalPtr = string_scanner<parseOpts>::unescapeImpl(strPtr + res.firstEscape, strPtr + res.rawLength, value.data() + res.firstEscape);
-				if (!finalPtr) [[unlikely]] {
-					return reject<parse_statuses::invalid_string_characters>();
-				}
-				if constexpr (concepts::has_resize<string_type>) {
-					value.resize(static_cast<uint64_t>(finalPtr - value.data()));
-				}
-			}
+			memcpy_wrapper(value.data(), scratch.data(), res.outLength);
 			++iter;
 			return true;
 		}

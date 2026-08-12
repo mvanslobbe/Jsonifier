@@ -1,26 +1,9 @@
 /*
-	MIT License	
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/utilities/str_to_d.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/fast_float.hpp>
@@ -59,132 +42,152 @@ namespace jsonifier::internal {
 	static constexpr char plus{ '+' };
 	static constexpr char nine{ '9' };
 
-	template<typename value_type> JSONIFIER_INLINE static string_view_ptr parseFloat(value_type& value, string_view_ptr iter, string_view_ptr end = nullptr) noexcept {
-		using namespace jsonifier::internal;
-		span<char> fraction;
-
-		int64_t expNumber{};
-		int64_t exponent{};
+	struct parsed_number {
 		uint64_t mantissa{};
-
-		if (iter >= end) {
-			return nullptr;
-		}
-
-		const bool negative{ *iter == minus };
+		int64_t exponent{};
+		read_buffer_ptr lastMatch{};
+		span<char> integer{};
+		span<char> fraction{};
+		bool negative{};
 		bool tooManyDigits{};
+		bool valid{};
+	};
 
-		if (negative) {
+	JSONIFIER_INLINE static parsed_number parse_number_string(read_buffer_ptr iter, read_buffer_ptr end, bool storeSpans) noexcept {
+		parsed_number answer{};
+		answer.negative = (*iter == minus);
+		if (answer.negative) {
 			++iter;
-
-			if (!JSONIFIER_IS_DIGIT(*iter)) [[unlikely]] {
-				return nullptr;
+			if (iter == end || !is_integer(*iter)) [[unlikely]] {
+				return answer;
 			}
 		}
+		read_buffer_ptr const startDigits = iter;
 
-		span<char> integer{ iter };
-
-		if (uint64_t val; (end - iter) >= 2 && (static_cast<void>(val = read2_to_u64(iter) - 0x3030), is_made_of_two_digits_no_sub(val))) {
-			mantissa = mantissa * 100 + parse_two_digits_unrolled_no_sub(val);
-			iter += 2;
-		}
-
-		while (JSONIFIER_IS_DIGIT(*iter)) {
-			mantissa = 10 * mantissa + static_cast<uint8_t>(*iter - zero);
+		uint64_t mantissa{};
+		if ((iter != end) && is_integer(*iter)) {
+			mantissa = static_cast<uint64_t>(*iter - '0');
 			++iter;
+			if ((iter != end) && is_integer(*iter)) {
+				mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+				++iter;
+				if ((iter != end) && is_integer(*iter)) {
+					mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+					++iter;
+					if ((iter != end) && is_integer(*iter)) {
+						mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+						++iter;
+						if ((iter != end) && is_integer(*iter)) {
+							mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+							++iter;
+							while ((iter != end) && is_integer(*iter)) {
+								mantissa = 10 * mantissa + static_cast<uint64_t>(*iter - '0');
+								++iter;
+							}
+						}
+					}
+				}
+			}
+		}
+		read_buffer_ptr const endOfIntegerPart = iter;
+		int64_t digitCount					   = static_cast<int64_t>(endOfIntegerPart - startDigits);
+		if (storeSpans) {
+			answer.integer = span<char>{ startDigits, endOfIntegerPart };
+		}
+		if (digitCount == 0 || (startDigits[0] == '0' && digitCount > 1)) [[unlikely]] {
+			return answer;
 		}
 
-		int64_t digitcount = static_cast<int64_t>(iter - integer.ptr);
-		integer.end		   = integer.ptr + static_cast<uint64_t>(digitcount);
-
-		if (digitcount == 0 || (integer.ptr[0] == zero && digitcount > 1)) [[unlikely]] {
-			return nullptr;
-		}
-
-		char const* before;
-
-		if (*iter == decimal) {
+		int64_t exponent{};
+		bool const hasDecimalPoint = (iter != end) && (*iter == decimal);
+		if (hasDecimalPoint) {
 			++iter;
-			before = iter;
-
+			read_buffer_ptr const before = iter;
 			loop_parse_if_eight_digits(iter, end, mantissa);
-
-			while ((iter != end) && JSONIFIER_IS_DIGIT(*iter)) {
-				uint8_t digit = uint8_t(*iter - char('0'));
+			while ((iter != end) && is_integer(*iter)) {
+				uint8_t digit = static_cast<uint8_t>(*iter - '0');
 				++iter;
 				mantissa = mantissa * 10 + digit;
 			}
-
-			exponent	 = before - iter;
-			fraction.ptr = before;
-			fraction.end = fraction.ptr + static_cast<uint64_t>(iter - before);
-			digitcount -= exponent;
-
+			exponent = before - iter;
+			if (storeSpans) {
+				answer.fraction = span<char>{ before, iter };
+			}
+			digitCount -= exponent;
 			if (exponent == 0) [[unlikely]] {
-				return nullptr;
+				return answer;
 			}
 		}
 
-		if (exp_tables<>::expTable[static_cast<uint8_t>(*iter)]) {
-			before = iter;
+		int64_t expNumber{};
+		if ((iter != end) && ((*iter == 'e') || (*iter == 'E'))) {
 			++iter;
 			bool negExp = false;
-			if (minus == *iter) {
+			if ((iter != end) && (*iter == minus)) {
 				negExp = true;
 				++iter;
-			} else if (plus == *iter) {
+			} else if ((iter != end) && (*iter == plus)) {
 				++iter;
 			}
-			if (JSONIFIER_IS_DIGIT(*iter)) {
-				while (JSONIFIER_IS_DIGIT(*iter)) {
-					if (expNumber < 0x10000000) {
-						expNumber = 10 * expNumber + static_cast<uint8_t>(*iter - zero);
+			if ((iter == end) || !is_integer(*iter)) [[unlikely]] {
+				return answer;
+			}
+			while ((iter != end) && is_integer(*iter)) {
+				uint8_t digit = static_cast<uint8_t>(*iter - '0');
+				if (expNumber < 0x10000000) {
+					expNumber = 10 * expNumber + digit;
+				}
+				++iter;
+			}
+			if (negExp) {
+				expNumber = -expNumber;
+			}
+			exponent += expNumber;
+		}
+		answer.lastMatch = iter;
+		answer.valid	 = true;
+
+		if (digitCount > 19) [[unlikely]] {
+			read_buffer_ptr start = startDigits;
+			while ((start != end) && (*start == '0' || *start == decimal)) {
+				if (*start == '0') {
+					--digitCount;
+				}
+				++start;
+			}
+			if (digitCount > 19) {
+				answer.tooManyDigits = true;
+				if (storeSpans) {
+					static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
+					mantissa							= 0;
+					iter								= answer.integer.ptr;
+					while ((mantissa < minNineteenDigitInteger) && (iter != answer.integer.end)) {
+						mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - '0');
+						++iter;
 					}
-					++iter;
+					if (mantissa >= minNineteenDigitInteger) {
+						exponent = endOfIntegerPart - iter + expNumber;
+					} else {
+						iter = answer.fraction.ptr;
+						while ((mantissa < minNineteenDigitInteger) && (iter != answer.fraction.end)) {
+							mantissa = mantissa * 10 + static_cast<uint64_t>(*iter - '0');
+							++iter;
+						}
+						exponent = answer.fraction.ptr - iter + expNumber;
+					}
 				}
-				if (negExp) {
-					expNumber = -expNumber;
-				}
-				exponent += expNumber;
-			} else {
-				return nullptr;
 			}
 		}
+		answer.exponent = exponent;
+		answer.mantissa = mantissa;
+		return answer;
+	}
 
-		if (digitcount > 19) {
-			before = integer.ptr;
-			while ((*before == zero || *before == decimal)) {
-				if (*before == zero) {
-					--digitcount;
-				}
-				++before;
-			}
-
-			if (digitcount > 19) {
-				tooManyDigits = true;
-				mantissa	  = 0;
-				before		  = integer.ptr;
-				static constexpr uint64_t minNineteenDigitInteger{ 1000000000000000000 };
-				while ((mantissa < minNineteenDigitInteger) && (before != integer.end)) {
-					mantissa = mantissa * 10 + static_cast<uint8_t>(*before - zero);
-					++before;
-				}
-				if (mantissa >= minNineteenDigitInteger) {
-					exponent = integer.end - before + expNumber;
-				} else {
-					before = fraction.ptr;
-					while ((mantissa < minNineteenDigitInteger) && (before != fraction.end)) {
-						mantissa = mantissa * 10 + static_cast<uint8_t>(*before - zero);
-						++before;
-					}
-					exponent = fraction.ptr - before + expNumber;
-				}
-			}
-		}
-
-		if (binary_format<value_type>::min_exponent_fast_path <= exponent && exponent <= binary_format<value_type>::max_exponent_fast_path && !tooManyDigits) {
-			if (rounds_to_nearest::roundsToNearest) {
-				if (mantissa <= binary_format<value_type>::max_mantissa_fast_path_value) {
+	template<float_t value_type> struct float_parser {
+		JSONIFIER_INLINE static bool clinger_fast_path(uint64_t mantissa, int64_t exponent, bool negative, value_type& value) noexcept {
+			if (binary_format<value_type>::min_exponent_fast_path <= exponent && exponent <= binary_format<value_type>::max_exponent_fast_path &&
+				mantissa <= binary_format<value_type>::max_mantissa_fast_path_value) {
+				if (rounds_to_nearest::roundsToNearest) {
 					value = static_cast<value_type>(mantissa);
 					if (exponent < 0) {
 						value = value / binary_format<value_type>::exact_power_of_ten(-exponent);
@@ -194,39 +197,69 @@ namespace jsonifier::internal {
 					if (negative) {
 						value = -value;
 					}
-					return iter;
-				}
-			} else {
-				if (exponent >= 0 && mantissa <= binary_format<value_type>::max_mantissa_fast_path(exponent)) {
-#if defined(__clang__) || defined(JSONIFIER_FASTFLOAT_32BIT)
+					return true;
+				} else if (exponent >= 0 && mantissa <= binary_format<value_type>::max_mantissa_fast_path(exponent)) {
+#if JSONIFIER_COMPILER_CLANG
 					if (mantissa == 0) {
 						value = negative ? static_cast<value_type>(-0.) : static_cast<value_type>(0.);
-						return iter;
+						return true;
 					}
 #endif
 					value = static_cast<value_type>(mantissa) * binary_format<value_type>::exact_power_of_ten(exponent);
 					if (negative) {
 						value = -value;
 					}
-					return iter;
+					return true;
 				}
 			}
+			return false;
 		}
-		adjusted_mantissa am = compute_float<binary_format<value_type>>(exponent, mantissa);
-		if (tooManyDigits && am.power2 >= 0) {
-			if (am != compute_float<binary_format<value_type>>(exponent, mantissa + 1)) {
-				am = compute_error<binary_format<value_type>>(exponent, mantissa);
+
+		static read_buffer_ptr parseFloatSlow(value_type& value, read_buffer_ptr iter, read_buffer_ptr end) noexcept {
+			parsed_number pns = parse_number_string(iter, end, true);
+			if (!pns.tooManyDigits && clinger_fast_path(pns.mantissa, pns.exponent, pns.negative, value)) {
+				return pns.lastMatch;
 			}
-		}
-		if (am.power2 < 0) [[unlikely]] {
-			am = digit_comp<value_type>(integer, fraction, mantissa, exponent, am);
+			adjusted_mantissa am = compute_float<binary_format<value_type>>(pns.exponent, pns.mantissa);
+			if (pns.tooManyDigits && am.power2 >= 0) {
+				if (am != compute_float<binary_format<value_type>>(pns.exponent, pns.mantissa + 1)) {
+					am = compute_error<binary_format<value_type>>(pns.exponent, pns.mantissa);
+				}
+			}
+			if (am.power2 < 0) {
+				am = digit_comp<value_type>(pns.integer, pns.fraction, pns.mantissa, pns.exponent, am);
+			}
+			if (am.power2 == binary_format<value_type>::infinite_power) {
+				return nullptr;
+			}
+			to_float(pns.negative, am, value);
+			return pns.lastMatch;
 		}
 
-		if (am.power2 == binary_format<value_type>::infinite_power) [[unlikely]] {
-			return nullptr;
+		JSONIFIER_INLINE static read_buffer_ptr parseFloat(value_type& value, read_buffer_ptr iter, read_buffer_ptr end = nullptr) noexcept {
+			if (iter >= end) [[unlikely]] {
+				return nullptr;
+			}
+			parsed_number pns = parse_number_string(iter, end, false);
+			if (!pns.valid) [[unlikely]] {
+				return nullptr;
+			}
+			if (pns.tooManyDigits) [[unlikely]] {
+				return parseFloatSlow(value, iter, end);
+			}
+			if (clinger_fast_path(pns.mantissa, pns.exponent, pns.negative, value)) {
+				return pns.lastMatch;
+			}
+			adjusted_mantissa am = compute_float<binary_format<value_type>>(pns.exponent, pns.mantissa);
+			if (am.power2 < 0) [[unlikely]] {
+				return parseFloatSlow(value, iter, end);
+			}
+			if (am.power2 == binary_format<value_type>::infinite_power) [[unlikely]] {
+				return nullptr;
+			}
+			to_float(pns.negative, am, value);
+			return pns.lastMatch;
 		}
+	};
 
-		to_float(negative, am, value);
-		return iter;
-	}
 }

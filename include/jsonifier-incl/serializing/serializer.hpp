@@ -1,26 +1,9 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-/// Feb 20, 2023
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/serializing/serializer.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/utilities/number_utils.hpp>
@@ -39,7 +22,7 @@ namespace jsonifier::internal {
 	template<typename value_type, serialize_options optionsNew> struct get_size_impl;
 
 	template<serialize_options options> struct get_size {
-		template<typename value_type_new> JSONIFIER_INLINE static void impl(value_type_new& value, size_context& context) noexcept {
+		template<typename value_type_new> inline static void impl(value_type_new& value, size_context& context) noexcept {
 			using value_type = remove_cvref_t<value_type_new>;
 			get_size_impl<value_type, options>::impl(value, context);
 		}
@@ -50,78 +33,138 @@ namespace jsonifier::internal {
 			using value_type = remove_cvref_t<value_type_new>;
 			serialize_impl<value_type, context_type, options>::impl(internal::forward<value_type_new>(value), internal::forward<context_type>(context));
 		}
+
+		template<typename value_type_new, typename context_type> JSONIFIER_INLINE static void implInline(value_type_new&& value, context_type&& context) noexcept {
+			using value_type = remove_cvref_t<value_type_new>;
+			serialize_impl<value_type, context_type, options>::impl(internal::forward<value_type_new>(value), internal::forward<context_type>(context));
+		}
 	};
 
-	template<typename buffer_type> struct serialize_context {
-		inline serialize_context() noexcept = default;
-
+	struct serialize_context {
+		inline serialize_context() noexcept									   = default;
 		inline serialize_context& operator=(const serialize_context&) noexcept = delete;
 		inline serialize_context(const serialize_context&) noexcept			   = delete;
 		inline serialize_context& operator=(serialize_context&&) noexcept	   = delete;
 		inline serialize_context(serialize_context&&) noexcept				   = delete;
 
-		inline serialize_context(string_buffer_ptr ptrNew) noexcept : bufferPtr{ ptrNew } {
+		inline serialize_context(write_buffer_ptr ptrNew) noexcept : bufferPtr{ ptrNew } {
 		}
 
-		string_buffer_ptr __restrict bufferPtr{};
+		write_buffer_ptr __restrict bufferPtr{};
 		uint64_t indent{};
 		uint64_t index{};
 	};
 
-	template<typename derived_type> class serializer {
-	  public:
-		serializer& operator=(const serializer& other) = delete;
-		serializer(const serializer& other)			   = delete;
+	template<serialize_options options, typename value_type> struct serialize_context_ro {
+		inline serialize_context_ro() noexcept										 = default;
+		inline serialize_context_ro& operator=(const serialize_context_ro&) noexcept = delete;
+		inline serialize_context_ro(const serialize_context_ro&) noexcept			 = delete;
+		inline serialize_context_ro& operator=(serialize_context_ro&&) noexcept		 = delete;
+		inline serialize_context_ro(serialize_context_ro&&) noexcept				 = delete;
 
-		template<serialize_options optionsNew = serialize_options{}, typename value_type, concepts::buffer_like buffer_type>
-		inline bool serializeJsonDirect(value_type&& object, buffer_type&& buffer) noexcept {
+		inline serialize_context_ro(value_type& objectNew) noexcept : object{ objectNew } {
+		}
+
+		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr __restrict ptrNew, uint64_t) noexcept {
+			bufferPtr = ptrNew;
+			if constexpr (bool_t<value_type> || number_t<value_type> || string_t<value_type>) {
+				serialize<options>::implInline(object, *this);
+			} else {
+				serialize<options>::impl(object, *this);
+			}
+			return static_cast<uint64_t>(bufferPtr - ptrNew);
+		}
+
+		write_buffer_ptr __restrict bufferPtr{};
+		value_type& object;
+		uint64_t indent{};
+		uint64_t index{};
+	};
+
+	template<typename derived_type_new> struct serializer {
+	  public:
+		using derived_type = derived_type_new;
+
+		template<serialize_options optionsNew = serialize_options{}, string_t value_type, buffer_like buffer_type>
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
 			static constexpr serialize_options options{ optionsNew };
-			serialize_context<decltype(buffer)> context{ buffer.data() };
-			serialize<options>::impl(object, context);
+			const auto newSize = object.size() * 6ull + 2ull + simdBytesPerStep;
+			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
+				buffer.resize_and_overwrite(newSize, serialize_context_ro<options, remove_reference_t<value_type>>{ object });
+			} else {
+				if (buffer.size() < newSize) {
+					buffer.resize(newSize);
+				}
+				serialize_context context{ buffer.data() };
+				serialize<options>::implInline(object, context);
+				buffer.resize(static_cast<uint64_t>(context.bufferPtr - buffer.data()));
+			}
 			return true;
 		}
 
-		template<serialize_options optionsNew = serialize_options{}, typename value_type, concepts::buffer_like buffer_type>
+		template<serialize_options optionsNew = serialize_options{}, bool_t value_type, buffer_like buffer_type>
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+			static constexpr serialize_options options{ optionsNew };
+			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
+				buffer.resize_and_overwrite(8ull, serialize_context_ro<options, remove_reference_t<value_type>>{ object });
+			} else {
+				if (buffer.size() < 8ull) {
+					buffer.resize(8ull);
+				}
+				const uint64_t targetSize = object ? 4ull : 5ull;
+				serialize_context context{ buffer.data() };
+				serialize<options>::implInline(object, context);
+				buffer.resize(targetSize);
+			}
+			return true;
+		}
+
+		template<serialize_options optionsNew = serialize_options{}, number_t value_type, buffer_like buffer_type>
+		JSONIFIER_INLINE bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
+			static constexpr serialize_options options{ optionsNew };
+			const uint64_t newSize{ digit_sizes<value_type>::value };
+			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
+				buffer.resize_and_overwrite(newSize, serialize_context_ro<options, remove_reference_t<value_type>>{ object });
+			} else {
+				if (buffer.size() < newSize) {
+					buffer.resize(newSize);
+				}
+				serialize_context context{ buffer.data() };
+				serialize<options>::implInline(object, context);
+				context.index = static_cast<uint64_t>(context.bufferPtr - buffer.data());
+				buffer.resize(context.index);
+			}
+			return true;
+		}
+
+		template<serialize_options optionsNew = serialize_options{}, typename value_type, buffer_like buffer_type>
 		inline bool serializeJson(value_type&& object, buffer_type&& buffer) noexcept {
 			static constexpr serialize_options options{ optionsNew };
 			size_context sizeContext{};
 			get_size<options>::impl(object, sizeContext);
-			if (derivedRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
-				derivedRef.stringBuffer.resize(sizeContext.requiredSize + 64);
+			const uint64_t newSize = sizeContext.requiredSize + 64ull;
+			if constexpr (has_resize_and_overwrite<remove_cvref_t<buffer_type>>) {
+				buffer.resize_and_overwrite(newSize, serialize_context_ro<options, remove_reference_t<value_type>>{ object });
+			} else {
+				if (buffer.size() < newSize) {
+					buffer.resize(newSize);
+				}
+				serialize_context context{ buffer.data() };
+				serialize<options>::impl(object, context);
+				buffer.resize(static_cast<uint64_t>(context.bufferPtr - buffer.data()));
 			}
-			serialize_context<decltype(derivedRef.stringBuffer)> context{ derivedRef.stringBuffer.data() };
-			serialize<options>::impl(object, context);
-			context.index = static_cast<uint64_t>(context.bufferPtr - derivedRef.stringBuffer.data());
-			buffer.resize(context.index);
-			static constexpr uint64_t charSize = sizeof(remove_cvref_t<decltype(buffer[0])>);
-			std::memcpy(buffer.data(), derivedRef.stringBuffer.data(), context.index * charSize);
 			return true;
 		}
 
-		template<serialize_options optionsNew = serialize_options{}, typename value_type> inline string_view serializeJson(const value_type& object) noexcept {
-			static constexpr serialize_options options{ optionsNew };
-			size_context sizeContext{};
-			get_size<options>::impl(object, sizeContext);
-			if (derivedRef.stringBuffer.size() < sizeContext.requiredSize + 64) {
-				derivedRef.stringBuffer.resize(sizeContext.requiredSize + 64);
-			}
-			serialize_context<decltype(derivedRef.stringBuffer)> context{ derivedRef.stringBuffer.data() };
-			serialize<options>::impl(object, context);
-			context.index = static_cast<uint64_t>(context.bufferPtr - derivedRef.stringBuffer.data());
-			return string_view{ derivedRef.stringBuffer.data(), context.index };
-		}
-
 	  protected:
-		derived_type& derivedRef{ initializeSelfRef() };
+		derived_type& derivedRef{ *static_cast<derived_type*>(this) };
 
-		serializer() noexcept {
-		}
-
-		derived_type& initializeSelfRef() noexcept {
-			return *static_cast<derived_type*>(this);
-		}
-
-		~serializer() noexcept = default;
+		serializer() noexcept						   = default;
+		serializer& operator=(const serializer& other) = delete;
+		serializer(const serializer& other)			   = delete;
+		serializer& operator=(serializer&& other)	   = delete;
+		serializer(serializer&& other)				   = delete;
+		~serializer() noexcept						   = default;
 	};
 
 }

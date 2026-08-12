@@ -1,58 +1,20 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * unit-tests/common.hpp
+ */
 #pragma once
 
-#include <filesystem>
 #include <jsonifier>
+#include <filesystem>
+#include <iostream>
 #include <fstream>
+#include <numeric>
 #include <random>
 #include <array>
 #include <rt-ut>
 #include <map>
-
-struct abc_in_order_test_struct {
-	std::string test_string;
-	uint64_t test_uint;
-	int64_t test_int;
-	double test_double;
-	bool test_bool;
-};
-
-struct abc_in_order_test {
-	std::vector<abc_in_order_test_struct> a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
-};
-
-struct abc_out_of_order_test_struct {
-	bool test_bool;
-	double test_double;
-	int64_t test_int;
-	uint64_t test_uint;
-	std::string test_string;
-};
-
-struct abc_out_of_order_test {
-	std::vector<abc_out_of_order_test_struct> z, y, x, w, v, u, t, s, r, q, p, o, n, m, l, k, j, i, h, g, f, e, d, c, b, a;
-};
 
 struct abc_in_order_partial_test_struct {
 	std::string test_string;
@@ -64,16 +26,6 @@ struct abc_in_order_partial_test {
 	std::vector<abc_in_order_partial_test_struct> a, m, z;
 };
 
-struct abc_out_of_order_partial_test_struct {
-	bool test_bool;
-	int64_t test_int;
-	std::string test_string;
-};
-
-struct abc_out_of_order_partial_test {
-	std::vector<abc_out_of_order_partial_test_struct> z, m, a;
-};
-
 template<> struct jsonifier::core<abc_in_order_partial_test_struct> {
 	using value_type				 = abc_in_order_partial_test_struct;
 	static constexpr auto parseValue = createValue<&value_type::test_string, &value_type::test_int, &value_type::test_bool>();
@@ -82,40 +34,6 @@ template<> struct jsonifier::core<abc_in_order_partial_test_struct> {
 template<> struct jsonifier::core<abc_in_order_partial_test> {
 	using value_type				 = abc_in_order_partial_test;
 	static constexpr auto parseValue = createValue<&value_type::a, &value_type::m, &value_type::z>();
-};
-
-template<> struct jsonifier::core<abc_in_order_test_struct> {
-	using value_type				 = abc_in_order_test_struct;
-	static constexpr auto parseValue = createValue<&value_type::test_string, &value_type::test_uint, &value_type::test_int, &value_type::test_double, &value_type::test_bool>();
-};
-
-template<> struct jsonifier::core<abc_in_order_test> {
-	using value_type				 = abc_in_order_test;
-	static constexpr auto parseValue = createValue<&value_type::a, &value_type::b, &value_type::c, &value_type::d, &value_type::e, &value_type::f, &value_type::g, &value_type::h,
-		&value_type::i, &value_type::j, &value_type::k, &value_type::l, &value_type::m, &value_type::n, &value_type::o, &value_type::p, &value_type::q, &value_type::r,
-		&value_type::s, &value_type::t, &value_type::u, &value_type::v, &value_type::w, &value_type::x, &value_type::y, &value_type::z>();
-};
-
-template<> struct jsonifier::core<abc_out_of_order_partial_test_struct> {
-	using value_type				 = abc_out_of_order_partial_test_struct;
-	static constexpr auto parseValue = createValue<&value_type::test_bool, &value_type::test_int, &value_type::test_string>();
-};
-
-template<> struct jsonifier::core<abc_out_of_order_partial_test> {
-	using value_type				 = abc_out_of_order_partial_test;
-	static constexpr auto parseValue = createValue<&value_type::z, &value_type::m, &value_type::a>();
-};
-
-template<> struct jsonifier::core<abc_out_of_order_test_struct> {
-	using value_type				 = abc_out_of_order_test_struct;
-	static constexpr auto parseValue = createValue<&value_type::test_bool, &value_type::test_double, &value_type::test_int, &value_type::test_uint, &value_type::test_string>();
-};
-
-template<> struct jsonifier::core<abc_out_of_order_test> {
-	using value_type				 = abc_out_of_order_test;
-	static constexpr auto parseValue = createValue<&value_type::z, &value_type::y, &value_type::x, &value_type::w, &value_type::v, &value_type::u, &value_type::t, &value_type::s,
-		&value_type::r, &value_type::q, &value_type::p, &value_type::o, &value_type::n, &value_type::m, &value_type::l, &value_type::k, &value_type::j, &value_type::i,
-		&value_type::h, &value_type::g, &value_type::f, &value_type::e, &value_type::d, &value_type::c, &value_type::b, &value_type::a>();
 };
 
 constexpr jsonifier::internal::string_literal basePath{ BASE_PATH };
@@ -157,29 +75,62 @@ inline static bool processFilesInFolder(std::unordered_map<std::string, test_bas
 	return true;
 }
 
-class file_handle {
+class file_handler {
   public:
 	static void save_file(const std::string& data, const std::string& path) {
-		std::filesystem::path abs_path = std::filesystem::absolute(path);
-		std::filesystem::create_directories(abs_path.parent_path());
-		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
-		if (stream.is_open()) {
-			stream << data;
-			stream.flush();
-			bool ok = stream.good();
-			stream.close();
-			std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
-		} else {
-			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+		std::error_code errorCode{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for writing: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return;
 		}
+		std::filesystem::create_directories(abs_path.parent_path(), errorCode);
+		if (errorCode) {
+			std::cout << "Failed to create directories: " << abs_path.parent_path().string() << " (" << errorCode.message() << ")" << std::endl;
+			return;
+		}
+		std::fstream stream{ abs_path, std::ios::out | std::ios::trunc };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for writing: " << abs_path.string() << std::endl;
+			return;
+		}
+		stream << data;
+		stream.flush();
+		const bool ok = stream.good();
+		stream.close();
+		std::cout << (ok ? "Saved: " : "Write error: ") << abs_path.string() << std::endl;
 	}
 
 	static std::string get(const std::string& path) {
-		std::fstream stream{ std::filesystem::absolute(path), std::ios::in };
-		if (stream.is_open()) {
-			return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+		std::error_code errorCode{};
+		std::string contents{};
+		const std::filesystem::path abs_path = std::filesystem::absolute(path, errorCode);
+		if (errorCode) {
+			std::cout << "Failed to resolve path for reading: " << path << " (" << errorCode.message() << ")" << std::endl;
+			return contents;
 		}
-		return {};
+		if (!std::filesystem::exists(abs_path, errorCode)) {
+			std::cout << "File not found: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		if (!std::filesystem::is_regular_file(abs_path, errorCode)) {
+			std::cout << "Not a regular file: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		std::fstream stream{ abs_path, std::ios::in | std::ios::binary };
+		if (!stream.is_open()) {
+			std::cout << "Failed to open for reading: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		contents = std::string{ std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>() };
+		if (stream.bad()) {
+			std::cout << "Read error: " << abs_path.string() << std::endl;
+			return contents;
+		}
+		if (contents.empty()) {
+			std::cout << "File is empty: " << abs_path.string() << std::endl;
+		}
+		return contents;
 	}
 };
 
@@ -214,7 +165,7 @@ struct pass_tests_runner {
 		rt_ut::unit_test<rt_ut::string_literal{ rt_ut::create_string_literal<pass_tests[index].size()>(pass_tests[index].data()) }, true>::assert_eq(pass_values[index], [&]() {
 			parser.parseJson<jsonifier::parse_options{ .partialRead = partial, .knownOrder = knownOrder }>(data, pass_tests[index]);
 			for (auto& value: parser.getErrors()) {
-				std::cout << "Jsonifier Error: " << value << std::endl;
+				std::cout << "Jsonifier Error: " << value.reportError() << std::endl;
 			}
 			return static_cast<value_type_out>(data);
 		});

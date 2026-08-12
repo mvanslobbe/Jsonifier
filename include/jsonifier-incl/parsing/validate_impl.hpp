@@ -1,39 +1,18 @@
 /*
-	MIT License
-
-	Copyright (c) 2024 RealTimeChris
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this
-	software and associated documentation files (the "Software"), to deal in the Software
-	without restriction, including without limitation the rights to use, copy, modify, merge,
-	publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-	persons to whom the Software is furnished to do so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all copies or
-	substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-	PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-	DEALINGS IN THE SOFTWARE.
-*/
-/// https://github.com/nihilai-collective/Jsonifier
-/// Feb 20, 2023
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Nihilai Collective Corp
+ * https://github.com/nihilai-collective/jsonifier
+ * include/jsonifier-incl/parsing/validate_impl.hpp
+ */
 #pragma once
 
 #include <jsonifier-incl/parsing/validator.hpp>
 
 namespace jsonifier::internal {
 
-	static constexpr parse_options optionsVal{ [] {
-		parse_options return_value{};
-		return_value.validateUtf8 = true;
-		return return_value;
-	}() };
+	static constexpr parse_options optionsVal{};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::object_start, derived_type> {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::object_start, derived_type_new> {
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (context.template checkChar<'{'>()) [[likely]] {
 				++context.currentIterPtr();
@@ -43,10 +22,10 @@ namespace jsonifier::internal {
 				}
 
 				while (context.notAtEndPre()) {
-					if (validate_impl<json_structural_type::string, derived_type>::impl(context)) [[likely]] {
+					if (validate_impl<json_structural_type::string, derived_type_new>::impl(context)) [[likely]] {
 						if (context.template checkChar<':'>()) [[likely]] {
 							++context.currentIterPtr();
-							if (validator<derived_type>::impl(context)) [[likely]] {
+							if (validator<derived_type_new>::impl(context)) [[likely]] {
 								if (context.template checkChar<','>()) [[likely]] {
 									++context.currentIterPtr();
 								} else {
@@ -74,7 +53,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::array_start, derived_type> {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::array_start, derived_type_new> {
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (context.template checkChar<'['>()) [[likely]] {
 				++context.currentIterPtr();
@@ -83,7 +62,7 @@ namespace jsonifier::internal {
 					return true;
 				}
 				while (context.notAtEndPre()) {
-					if (validator<derived_type>::impl(context)) [[likely]] {
+					if (validator<derived_type_new>::impl(context)) [[likely]] {
 						if (context.template checkChar<','>()) [[likely]] {
 							++context.currentIterPtr();
 						} else {
@@ -105,29 +84,27 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::string, derived_type> {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::string, derived_type_new> {
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (context.template checkChar<'"'>()) [[likely]] {
 				auto newPtr = context.currentPtr();
 				++context.currentIterPtr();
 				auto endPtr		   = context.notAtEndPre() ? context.currentPtr() : (newPtr + (context.endIterPtr() - context.currentIterPtr()));
 				using scanner_type = string_scanner<optionsVal>;
-				const auto res	   = scanner_type::impl(newPtr, endPtr);
-				if (!res.valid) [[unlikely]] {
-					return false;
+				auto& scratch	   = context.getStringBuffer();
+				const auto needed  = static_cast<uint64_t>(endPtr - newPtr) + simdBytesPerStep;
+				if (scratch.size() < needed) [[unlikely]] {
+					scratch.resize(needed);
 				}
-				if (res.firstEscape == scanner_type::npos) [[likely]] {
-					return true;
-				}
-				return scanner_type::unescapeImpl(newPtr + res.firstEscape, newPtr + res.rawLength, context.getStringBuffer().data()) != nullptr;
+				return scanner_type::impl(newPtr, endPtr, scratch.data()).outLength != std::numeric_limits<uint64_t>::max();
 			} else [[unlikely]] {
 				return false;
 			}
 		}
 	};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::number, derived_type> {
-		inline static bool consumeChar(char expected, string_view_ptr& newerPtr) {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::number, derived_type_new> {
+		inline static bool consumeChar(char expected, read_buffer_ptr& newerPtr) {
 			if (*newerPtr == expected) {
 				++newerPtr;
 				return true;
@@ -135,16 +112,16 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		inline static bool consumeDigits(string_view_ptr& newerPtr, uint64_t minCount = 1) {
+		inline static bool consumeDigits(read_buffer_ptr& newerPtr, uint64_t minCount = 1) {
 			uint64_t count = 0;
-			while (JSONIFIER_IS_DIGIT(*newerPtr)) {
+			while (is_digit(static_cast<uint8_t>(*newerPtr))) {
 				++newerPtr;
 				++count;
 			}
 			return count >= minCount;
 		}
 
-		inline static void consumeSign(string_view_ptr& newerPtr) {
+		inline static void consumeSign(read_buffer_ptr& newerPtr) {
 			if (*newerPtr == '-' || *newerPtr == '+') {
 				++newerPtr;
 			}
@@ -172,7 +149,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::boolean, derived_type> {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::boolean, derived_type_new> {
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (context.notAtEndPre() && validateBool(context.currentPtr())) [[likely]] {
 				++context.currentIterPtr();
@@ -183,7 +160,7 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<typename derived_type> struct validate_impl<json_structural_type::null, derived_type> {
+	template<typename derived_type_new> struct validate_impl<json_structural_type::null, derived_type_new> {
 		template<typename context_type> inline static bool impl(context_type& context) noexcept {
 			if (context.notAtEndPre() && validateNull(context.currentPtr())) [[likely]] {
 				++context.currentIterPtr();
