@@ -11,17 +11,14 @@
 
 namespace jsonifier {
 
-	using read_buffer_ptr	   = const char*;
-	using structural_index_ptr = uint32_t*;
-	using write_buffer_ptr	   = char*;
+	using const_structural_index_ptr = const uint32_t*;
+	using read_buffer_ptr			 = const char*;
+	using structural_index_ptr		 = uint32_t*;
+	using write_buffer_ptr			 = char*;
 
 	static constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::get_value(internal::cpu_property_types::alignment) };
 
-}
-
 #if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_ANY_AVX)
-
-namespace jsonifier {
 
 	using jsonifier_simd_int_128 = __m128i;
 	using jsonifier_simd_int_256 = __m256i;
@@ -49,7 +46,7 @@ namespace jsonifier {
 	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 		#elif JSONIFIER_COMPILER_GCC
-	static constexpr uint64_t simdTapeStep		= 1;
+	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 8;
 		#else
 	static constexpr uint64_t simdTapeStep		= 4;
@@ -75,8 +72,6 @@ namespace jsonifier {
 
 #elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_SVE2)
 
-namespace jsonifier {
-
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "Jsonifier's SVE2 path is only implemented for a 128-bit vector length.");
 
 	static constexpr read_buffer_ptr cpu_arch_name{ "SVE2" };
@@ -99,8 +94,6 @@ namespace jsonifier {
 
 #elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 
-namespace jsonifier {
-
 	static constexpr read_buffer_ptr cpu_arch_name{ "NEON" };
 
 	#if JSONIFIER_COMPILER_CLANG
@@ -119,8 +112,6 @@ namespace jsonifier {
 	using jsonifier_simd_int_t	 = jsonifier_simd_int_128;
 
 #else
-
-namespace jsonifier {
 
 	static constexpr read_buffer_ptr cpu_arch_name{ "FALLBACK" };
 
@@ -165,9 +156,9 @@ namespace jsonifier {
 
 	template<uint64_t registerCount, uint64_t registerBytes = simdBytesPerRegister> struct simd_register_array {
 		using simd_type = typename simd_register<registerBytes>::type;
-		alignas(registerBytes) simd_type values[registerCount]{};
+		alignas(registerBytes) simd_type values[registerCount];
 
-		template<uint64_t indexNew> JSONIFIER_INLINE void set(simd_type value) noexcept {
+		template<uint64_t indexNew> JSONIFIER_INLINE void set(const simd_type value) noexcept {
 			static_assert(indexNew < registerCount, "simd_register_array::set index out of range.");
 			values[indexNew] = value;
 		}

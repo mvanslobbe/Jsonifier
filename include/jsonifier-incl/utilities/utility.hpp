@@ -22,6 +22,15 @@ namespace jsonifier::internal {
 		return returnValues;
 	}() };
 
+	alignas(64) static constexpr array<int64_t, 256ULL> nestingDeltaTable{ []() constexpr {
+		array<int64_t, 256ULL> returnValues{};
+		returnValues[static_cast<uint64_t>('{')] = 1;
+		returnValues[static_cast<uint64_t>('[')] = 1;
+		returnValues[static_cast<uint64_t>('}')] = -1;
+		returnValues[static_cast<uint64_t>(']')] = -1;
+		return returnValues;
+	}() };
+
 	alignas(64) static constexpr array<bool, 256ULL> newlineTable{ []() constexpr {
 		array<bool, 256ULL> returnValues{};
 		returnValues[static_cast<uint64_t>('\n')] = true;
@@ -106,7 +115,7 @@ namespace jsonifier::internal {
 		return static_cast<jsonifier::internal::remove_reference_t<value_type>&&>(value);
 	}
 
-	template<uint_types value_type> constexpr value_type byteswap(value_type value) noexcept {
+	template<uint_types value_type> inline constexpr value_type byteswap(value_type value) noexcept {
 		if constexpr (sizeof(value_type) == 1) {
 			return value;
 		} else if constexpr (sizeof(value_type) == 2) {
@@ -137,11 +146,11 @@ namespace jsonifier::internal {
 		using value_type				  = decltype(valueNew);
 		static constexpr value_type value = valueNew;
 
-		JSONIFIER_INLINE constexpr operator value_type() const noexcept {
+		JSONIFIER_INLINE constexpr value_type operator()() const noexcept {
 			return value;
 		}
 
-		JSONIFIER_INLINE constexpr value_type operator()() const noexcept {
+		JSONIFIER_INLINE constexpr operator value_type() const noexcept {
 			return value;
 		}
 	};
@@ -194,22 +203,23 @@ namespace jsonifier::internal {
 	template<template<auto...> typename functor_type, typename integer_sequence, auto...> struct functor_runner;
 
 	template<template<auto...> typename functor_type, uint64_t... indices, auto... values> struct functor_runner<functor_type, integer_sequence<indices...>, values...> {
-		template<typename... arg_types> JSONIFIER_INLINE static auto impl([[maybe_unused]] arg_types&&... args) noexcept {
-			return (functor_type<values...>::template impl<indices>(internal::forward<arg_types>(args)...), ...);
-		}
-
 		template<typename... arg_types> JSONIFIER_INLINE static auto implAnd([[maybe_unused]] arg_types&&... args) noexcept {
 			return (functor_type<values...>::template impl<indices>(internal::forward<arg_types>(args)...) && ...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE static auto impl([[maybe_unused]] arg_types&&... args) noexcept {
+			return (functor_type<values...>::template impl<indices>(internal::forward<arg_types>(args)...), ...);
 		}
 	};
 
 	template<template<auto...> typename functor_type, uint64_t... indices, uint64_t offsetVal, auto... values>
 	struct functor_runner<functor_type, offset_sequence<integer_sequence<indices...>, offsetVal>, values...> {
-		template<typename... arg_types> JSONIFIER_INLINE static auto impl([[maybe_unused]] arg_types&&... args) noexcept {
-			return (functor_type<values...>::template impl<indices + offsetVal>(internal::forward<arg_types>(args)...), ...);
-		}
 		template<typename... arg_types> JSONIFIER_INLINE static auto implAnd([[maybe_unused]] arg_types&&... args) noexcept {
 			return (functor_type<values...>::template impl<indices + offsetVal>(internal::forward<arg_types>(args)...) && ...);
+		}
+
+		template<typename... arg_types> JSONIFIER_INLINE static auto impl([[maybe_unused]] arg_types&&... args) noexcept {
+			return (functor_type<values...>::template impl<indices + offsetVal>(internal::forward<arg_types>(args)...), ...);
 		}
 	};
 

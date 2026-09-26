@@ -328,7 +328,7 @@ namespace json_test_suite_tests {
 		conformance_tests::runConformanceTest<"n_structure_lone-invalid-utf-8.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 			jsonifier::internal::parse_statuses::missing_object_start>(jsonTests["n_structure_lone-invalid-utf-8.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_lone-open-bracket.json", partial, knownOrder, nullTerminated, std::vector<std::string>,
-			jsonifier::internal::parse_statuses::invalid_string_characters>(jsonTests["n_structure_lone-open-bracket.json"].fileContents, parser);
+			jsonifier::internal::parse_statuses::unexpected_string_end>(jsonTests["n_structure_lone-open-bracket.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_no_data.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,
 			jsonifier::internal::parse_statuses::no_input>(jsonTests["n_structure_no_data.json"].fileContents, parser);
 		conformance_tests::runConformanceTest<"n_structure_null-byte-outside-string.json", partial, knownOrder, nullTerminated, std::unordered_map<std::string, std::string>,

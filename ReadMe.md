@@ -2,7 +2,7 @@
 
 ![Commit Activity](https://img.shields.io/github/commit-activity/y/nihilai-collective/jsonifier?color=999EE0&label=Commits&style=plastic)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg?style=plastic)
-![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg?style=plastic)
+![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg?style=plastic)
 
 **Jsonifier is fully [RFC8259](https://datatracker.ietf.org/doc/html/rfc8259) compliant.**
 
@@ -268,7 +268,7 @@ The `jsonifier_core<>` type is now templated on an initial scratch-buffer size i
 ## Requirements
 
 - CMake 3.28 or later
-- C++20 compliant compiler (MSVC 2022+, GCC 11+, Clang 16+)
+- C++23 compliant compiler (MSVC 2022+, GCC 11+, Clang 16+)
 - Supported CPU (x64, ARM64 with NEON or SVE2*)
 
 <sub>* SVE2 support is experimental — see the CPU Architecture Support section above.</sub>
