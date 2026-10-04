@@ -1170,14 +1170,17 @@ namespace jsonifier::internal {
 
 	template<typename value_type> static thread_local uint64_t elementCountHint{};
 
+	template<typename value_type> static constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
+
 	template<typename value_type> JSONIFIER_INLINE static void reserveFromHint(value_type& value) noexcept {
 		if constexpr (has_reserve<value_type>) {
+			const uint64_t target = elementCountHint<value_type> < maxHintedElements<value_type> ? elementCountHint<value_type> : maxHintedElements<value_type>;
 			if constexpr (requires { value.capacity(); }) {
-				if (value.capacity() >= elementCountHint<value_type>) {
+				if (value.capacity() >= target) {
 					return;
 				}
 			}
-			value.reserve(elementCountHint<value_type>);
+			value.reserve(target);
 		}
 	}
 
@@ -1187,6 +1190,28 @@ namespace jsonifier::internal {
 		}
 		if (newSize > elementCountHint<value_type>) {
 			elementCountHint<value_type> = newSize;
+		}
+	}
+
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wexit-time-destructors"
+	#pragma clang diagnostic ignored "-Wglobal-constructors"
+#endif
+	template<typename value_type> static thread_local value_type valueTemp;
+#if JSONIFIER_COMPILER_CLANG
+	#pragma clang diagnostic pop
+#endif
+
+	template<typename element_type> inline constexpr bool fullyOverwritten{ std::is_arithmetic_v<element_type> };
+
+	template<vector_t element_type> inline constexpr bool fullyOverwritten<element_type>{ fullyOverwritten<typename element_type::value_type> };
+
+	template<typename value_type, typename iterator_type> JSONIFIER_INLINE static void moveAssignVec(value_type& value, iterator_type first, iterator_type last) {
+		if constexpr (std::is_trivially_copyable_v<typename value_type::value_type>) {
+			value.assign(first, last);
+		} else {
+			value.assign(std::make_move_iterator(first), std::make_move_iterator(last));
 		}
 	}
 
@@ -1204,23 +1229,61 @@ namespace jsonifier::internal {
 				value.clear();
 				return true;
 			}
-			const uint64_t oldSize{ value.size() };
-			reserveFromHint(value);
-			uint64_t newSize{};
-			while (cursor::notAtEnd(iter, endIter)) {
-				if (!parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, endIter, context)) [[unlikely]] {
+			if constexpr (fullyOverwritten<typename value_type::value_type>) {
+				uint64_t oldSize{ valueTemp<value_type>.size() };
+				uint64_t newSize{};
+				if (oldSize > 0) {
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
+					for (uint64_t x = 0; x < oldSize; ++x) {
+						if (!parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, endIter, context)) [[unlikely]] {
+							return false;
+						}
+						++newSize;
+						const auto sep = nextArrayElement<options>(iter, endIter, context);
+						if (sep == parse_result::active_member) [[likely]] {
+							continue;
+						}
+						if (sep == parse_result::ended) {
+							moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+							return true;
+						}
+						return false;
+					}
+				}
+				while (cursor::notAtEnd(iter, endIter)) {
+					if (!parse<options>::impl(valueTemp<value_type>.emplace_back(), iter, endIter, context)) [[unlikely]] {
+						return false;
+					}
+					++newSize;
+					const auto sep = nextArrayElement<options>(iter, endIter, context);
+					if (sep == parse_result::active_member) [[likely]] {
+						continue;
+					}
+					if (sep == parse_result::ended) {
+						moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
+						return true;
+					}
 					return false;
 				}
-				++newSize;
-				const auto sep = nextArrayElement<options>(iter, endIter, context);
-				if (sep == parse_result::active_member) [[likely]] {
-					continue;
+			} else {
+				const uint64_t oldSize{ value.size() };
+				reserveFromHint(value);
+				uint64_t newSize{};
+				while (cursor::notAtEnd(iter, endIter)) {
+					if (!parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, endIter, context)) [[unlikely]] {
+						return false;
+					}
+					++newSize;
+					const auto sep = nextArrayElement<options>(iter, endIter, context);
+					if (sep == parse_result::active_member) [[likely]] {
+						continue;
+					}
+					if (sep == parse_result::ended) {
+						finishInPlace(value, oldSize, newSize);
+						return true;
+					}
+					return false;
 				}
-				if (sep == parse_result::ended) {
-					finishInPlace(value, oldSize, newSize);
-					return true;
-				}
-				return false;
 			}
 			return cursor::template reject<parse_statuses::unexpected_string_end>(iter, context);
 		}
@@ -1234,23 +1297,61 @@ namespace jsonifier::internal {
 				value.clear();
 				return true;
 			}
-			const uint64_t oldSize{ value.size() };
-			reserveFromHint(value);
-			uint64_t newSize{};
-			while (cursor::notAtEnd(iter, endIter)) {
-				if (!parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, endIter, context)) [[unlikely]] {
+			if constexpr (fullyOverwritten<typename value_type::value_type>) {
+				uint64_t oldSize{ valueTemp<value_type>.size() };
+				uint64_t newSize{};
+				if (oldSize > 0) {
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
+					for (uint64_t x = 0; x < oldSize; ++x) {
+						if (!parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, endIter, context)) [[unlikely]] {
+							return false;
+						}
+						++newSize;
+						const auto sep = nextArrayElement<options>(iter, endIter, context);
+						if (sep == parse_result::active_member) [[likely]] {
+							continue;
+						}
+						if (sep == parse_result::ended) {
+							moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+							return true;
+						}
+						return false;
+					}
+				}
+				while (cursor::notAtEnd(iter, endIter)) {
+					if (!parse<options>::impl(valueTemp<value_type>.emplace_back(), iter, endIter, context)) [[unlikely]] {
+						return false;
+					}
+					++newSize;
+					const auto sep = nextArrayElement<options>(iter, endIter, context);
+					if (sep == parse_result::active_member) [[likely]] {
+						continue;
+					}
+					if (sep == parse_result::ended) {
+						moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
+						return true;
+					}
 					return false;
 				}
-				++newSize;
-				const auto sep = nextArrayElement<options>(iter, endIter, context);
-				if (sep == parse_result::active_member) [[likely]] {
-					continue;
+			} else {
+				const uint64_t oldSize{ value.size() };
+				reserveFromHint(value);
+				uint64_t newSize{};
+				while (cursor::notAtEnd(iter, endIter)) {
+					if (!parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, endIter, context)) [[unlikely]] {
+						return false;
+					}
+					++newSize;
+					const auto sep = nextArrayElement<options>(iter, endIter, context);
+					if (sep == parse_result::active_member) [[likely]] {
+						continue;
+					}
+					if (sep == parse_result::ended) {
+						finishInPlace(value, oldSize, newSize);
+						return true;
+					}
+					return false;
 				}
-				if (sep == parse_result::ended) {
-					finishInPlace(value, oldSize, newSize);
-					return true;
-				}
-				return false;
 			}
 			return cursor::template reject<parse_statuses::unexpected_string_end>(iter, context);
 		}
@@ -1814,25 +1915,71 @@ namespace jsonifier::internal {
 				value.clear();
 				return iter;
 			}
-			const uint64_t oldSize{ value.size() };
-			reserveFromHint(value);
-			uint64_t newSize{};
-			while (cursor::notAtEnd(iter, end)) {
-				iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, end, innerDepth, context);
-				if (!iter) [[unlikely]] {
-					return nullptr;
+			if constexpr (fullyOverwritten<typename value_type::value_type>) {
+				uint64_t oldSize{ valueTemp<value_type>.size() };
+				uint64_t newSize{};
+				if (oldSize > 0) {
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
+					for (uint64_t x = 0; x < oldSize; ++x) {
+						iter = parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, end, innerDepth, context);
+						if (!iter) [[unlikely]] {
+							return nullptr;
+						}
+						++newSize;
+						switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+							case static_cast<uint64_t>(sep_result::cont): {
+								continue;
+							}
+							case static_cast<uint64_t>(sep_result::ended): {
+								moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+								return iter;
+							}
+							default: {
+								return nullptr;
+							}
+						}
+					}
 				}
-				++newSize;
-				switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
-						continue;
-					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						finishInPlace(value, oldSize, newSize);
-						return iter;
-					}
-					default: {
+				while (cursor::notAtEnd(iter, end)) {
+					iter = parse<options>::impl(valueTemp<value_type>.emplace_back(), iter, end, innerDepth, context);
+					if (!iter) [[unlikely]] {
 						return nullptr;
+					}
+					++newSize;
+					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+						case static_cast<uint64_t>(sep_result::cont): {
+							continue;
+						}
+						case static_cast<uint64_t>(sep_result::ended): {
+							moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
+							return iter;
+						}
+						default: {
+							return nullptr;
+						}
+					}
+				}
+			} else {
+				const uint64_t oldSize{ value.size() };
+				reserveFromHint(value);
+				uint64_t newSize{};
+				while (cursor::notAtEnd(iter, end)) {
+					iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, end, innerDepth, context);
+					if (!iter) [[unlikely]] {
+						return nullptr;
+					}
+					++newSize;
+					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+						case static_cast<uint64_t>(sep_result::cont): {
+							continue;
+						}
+						case static_cast<uint64_t>(sep_result::ended): {
+							finishInPlace(value, oldSize, newSize);
+							return iter;
+						}
+						default: {
+							return nullptr;
+						}
 					}
 				}
 			}
@@ -1849,25 +1996,71 @@ namespace jsonifier::internal {
 				value.clear();
 				return iter;
 			}
-			const uint64_t oldSize{ value.size() };
-			reserveFromHint(value);
-			uint64_t newSize{};
-			while (cursor::notAtEnd(iter, end)) {
-				iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, end, innerDepth, context);
-				if (!iter) [[unlikely]] {
-					return nullptr;
+			if constexpr (fullyOverwritten<typename value_type::value_type>) {
+				uint64_t oldSize{ valueTemp<value_type>.size() };
+				uint64_t newSize{};
+				if (oldSize > 0) {
+					auto beginIter = getBeginIterVec(valueTemp<value_type>);
+					for (uint64_t x = 0; x < oldSize; ++x) {
+						iter = parse<options>::impl(beginIter[static_cast<int64_t>(x)], iter, end, innerDepth, context);
+						if (!iter) [[unlikely]] {
+							return nullptr;
+						}
+						++newSize;
+						switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+							case static_cast<uint64_t>(sep_result::cont): {
+								continue;
+							}
+							case static_cast<uint64_t>(sep_result::ended): {
+								moveAssignVec(value, beginIter, beginIter + static_cast<int64_t>(newSize));
+								return iter;
+							}
+							default: {
+								return nullptr;
+							}
+						}
+					}
 				}
-				++newSize;
-				switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
-					case static_cast<uint64_t>(sep_result::cont): {
-						continue;
-					}
-					case static_cast<uint64_t>(sep_result::ended): {
-						finishInPlace(value, oldSize, newSize);
-						return iter;
-					}
-					default: {
+				while (cursor::notAtEnd(iter, end)) {
+					iter = parse<options>::impl(valueTemp<value_type>.emplace_back(), iter, end, innerDepth, context);
+					if (!iter) [[unlikely]] {
 						return nullptr;
+					}
+					++newSize;
+					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+						case static_cast<uint64_t>(sep_result::cont): {
+							continue;
+						}
+						case static_cast<uint64_t>(sep_result::ended): {
+							moveAssignVec(value, getBeginIterVec(valueTemp<value_type>), getEndIterVec(valueTemp<value_type>));
+							return iter;
+						}
+						default: {
+							return nullptr;
+						}
+					}
+				}
+			} else {
+				const uint64_t oldSize{ value.size() };
+				reserveFromHint(value);
+				uint64_t newSize{};
+				while (cursor::notAtEnd(iter, end)) {
+					iter = parse<options>::impl(newSize < oldSize ? value[newSize] : value.emplace_back(), iter, end, innerDepth, context);
+					if (!iter) [[unlikely]] {
+						return nullptr;
+					}
+					++newSize;
+					switch (static_cast<uint64_t>(cursor::collectArraySeparator(iter, end, innerDepth, context))) {
+						case static_cast<uint64_t>(sep_result::cont): {
+							continue;
+						}
+						case static_cast<uint64_t>(sep_result::ended): {
+							finishInPlace(value, oldSize, newSize);
+							return iter;
+						}
+						default: {
+							return nullptr;
+						}
 					}
 				}
 			}
