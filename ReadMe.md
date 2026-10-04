@@ -268,7 +268,7 @@ The `jsonifier_core<>` type is now templated on an initial scratch-buffer size i
 ## Requirements
 
 - CMake 3.28 or later
-- C++23 compliant compiler (MSVC 2022+, GCC 11+, Clang 16+)
+- C++23 compliant compiler (MSVC 2022 v19.40+, GCC 14+, Clang 18+)
 - Supported CPU (x64, ARM64 with NEON or SVE2*)
 
 <sub>* SVE2 support is experimental — see the CPU Architecture Support section above.</sub>
