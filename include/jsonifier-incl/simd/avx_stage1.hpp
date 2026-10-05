@@ -114,7 +114,7 @@ namespace jsonifier::internal::simd {
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
 			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept;
 
 		JSONIFIER_INLINE void finishNext() noexcept {
@@ -176,7 +176,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t registerBytes, uint64_t registerCount> struct pod_cmp_eq_op {
 		using simd_type		  = typename simd_register<registerBytes>::type;
-		using simd_array_type = scalar_simd_array_t<registerCount, registerBytes>;
+		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type lhs, const simd_array_type rhs) noexcept {
 			uint64_t result = static_cast<uint64_t>(simd::opCmpEq(lhs.template get<0>(), rhs.template get<0>()));
@@ -207,7 +207,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t registerBytes, uint64_t registerCount> struct pod_ws_collector {
 		using simd_type		  = typename simd_register<registerBytes>::type;
-		using simd_array_type = scalar_simd_array_t<registerCount, registerBytes>;
+		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const simd_type whitespaceTableLocal) noexcept {
 			simd_array_type wsShuffle;
@@ -225,7 +225,7 @@ namespace jsonifier::internal::simd {
 
 	template<uint64_t registerBytes, uint64_t registerCount> struct scalar_op_collector {
 		using simd_type		  = typename simd_register<registerBytes>::type;
-		using simd_array_type = scalar_simd_array_t<registerCount, registerBytes>;
+		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const simd_type opTable, const simd_type spaceMask) noexcept {
 			simd_array_type orLhs;
@@ -248,7 +248,7 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<typename rope_block> template<uint64_t registerBytes, uint64_t registerCount>
-	JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(const scalar_simd_array_t<registerCount, registerBytes> in_01,
+	JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
 		const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
 		const uint64_t escaped = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, bsRegister));
 		const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, quoteRegister) & ~escaped);

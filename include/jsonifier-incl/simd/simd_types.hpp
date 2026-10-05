@@ -46,7 +46,7 @@ namespace jsonifier {
 	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 		#elif JSONIFIER_COMPILER_GCC
-	static constexpr uint64_t simdTapeStep		= 8;
+static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 8;
 		#else
 	static constexpr uint64_t simdTapeStep		= 4;
@@ -97,7 +97,7 @@ namespace jsonifier {
 	static constexpr read_buffer_ptr cpu_arch_name{ "NEON" };
 
 	#if JSONIFIER_COMPILER_CLANG
-	static constexpr uint64_t simdTapeStep		= 4;
+	static constexpr uint64_t simdTapeStep		= 8;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 	#elif JSONIFIER_COMPILER_GCC
 	static constexpr uint64_t simdTapeStep		= 8;
@@ -173,5 +173,5 @@ namespace jsonifier {
 
 	using simd_array_t = simd_array<simdRegistersPerBlock>;
 
-	template<uint64_t registerCount, uint64_t registerBytes> using scalar_simd_array_t = simd_register_array<registerCount, registerBytes>;
+	template<uint64_t registerCount, uint64_t registerBytes> using pod_simd_array_t = simd_register_array<registerCount, registerBytes>;
 }

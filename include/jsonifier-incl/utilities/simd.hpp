@@ -681,7 +681,7 @@ namespace jsonifier::internal {
 			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister,
 			const typename simd_register<registerBytes>::type opTable, const typename simd_register<registerBytes>::type spaceMask, const simd_types... args) noexcept {
 			using simd_type = typename simd_register<registerBytes>::type;
-			scalar_simd_array_t<registerCount, registerBytes> inVals;
+			pod_simd_array_t<registerCount, registerBytes> inVals;
 			inVals.template set<0>(simd::gatherValuesU<simd_type>(blockPtr + I * simdBytesPerBlock));
 			if constexpr (registerCount > 1) {
 				inVals.template set<1>(simd::gatherValuesU<simd_type>(blockPtr + I * simdBytesPerBlock + registerBytes * 1));
@@ -723,7 +723,7 @@ namespace jsonifier::internal {
 		}
 
 		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE static uint64_t getStructurals(rope_type& __restrict rope,
-			const scalar_simd_array_t<registerCount, registerBytes> in_01, const typename simd_register<registerBytes>::type opTable,
+			const pod_simd_array_t<registerCount, registerBytes> in_01, const typename simd_register<registerBytes>::type opTable,
 			const typename simd_register<registerBytes>::type spaceMask, const typename simd_register<registerBytes>::type whitespaceTableLocal) noexcept {
 			const uint64_t whitespace  = simd::pod_ws_collector<registerBytes, registerCount>::impl(in_01, whitespaceTableLocal);
 			const uint64_t op		   = simd::scalar_op_collector<registerBytes, registerCount>::impl(in_01, opTable, spaceMask);
@@ -756,7 +756,7 @@ namespace jsonifier::internal {
 		}
 
 		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE static uint64_t getStructurals(rope_type& __restrict rope,
-			const scalar_simd_array_t<registerCount, registerBytes> in_01, const typename simd_register<registerBytes>::type opTable,
+			const pod_simd_array_t<registerCount, registerBytes> in_01, const typename simd_register<registerBytes>::type opTable,
 			const typename simd_register<registerBytes>::type spaceMask) noexcept {
 			const uint64_t op		   = simd::scalar_op_collector<registerBytes, registerCount>::impl(in_01, opTable, spaceMask);
 			const uint64_t quotes	   = rope.quotes;
