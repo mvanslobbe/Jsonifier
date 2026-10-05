@@ -4,7 +4,7 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/utilities/simd.hpp
  */
-// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
+// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 #pragma once
 
 #include <jsonifier-incl/utilities/string_view.hpp>
@@ -61,7 +61,7 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			std::memset(+block + (length - index), static_cast<uint8_t>(0x20), stepBytes - (length - index));
-			memcpyWrapper(+block, inString + index, length - index);
+			jsonifierMemcpy(+block, inString + index, length - index);
 			return +block;
 		}
 
@@ -93,7 +93,7 @@ namespace jsonifier::internal {
 			uint8_t* __restrict blockPtr	 = +block;
 			const uint8_t* __restrict srcPtr = inString + index;
 			std::memset(blockPtr + (length - index), static_cast<uint8_t>(0x20), paddedBytes - (length - index));
-			memcpyWrapper(blockPtr, srcPtr, length - index);
+			jsonifierMemcpy(blockPtr, srcPtr, length - index);
 			return +block;
 		}
 
@@ -116,7 +116,7 @@ namespace jsonifier::internal {
 			const uint64_t remaining		 = lengthVal - indexVal;
 			uint8_t* __restrict blockPtr	 = +block;
 			const uint8_t* __restrict srcPtr = inString + indexVal;
-			memcpyWrapper(blockPtr, srcPtr, remaining);
+			jsonifierMemcpy(blockPtr, srcPtr, remaining);
 			std::memset(blockPtr + remaining, static_cast<uint8_t>(0x20), simdBytesPerBlock - remaining);
 			return +block;
 		}
@@ -231,7 +231,7 @@ namespace jsonifier::internal {
 				tapeCount					= other.tapeCount;
 				string_block_reader::length = other.string_block_reader::length;
 				if (other.tape) {
-					memcpyWrapper(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
+					jsonifierMemcpy(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
 				}
 			}
 			return *this;
@@ -527,7 +527,7 @@ namespace jsonifier::internal {
 				tapeCount						   = other.tapeCount;
 				string_block_reader_locals::length = other.string_block_reader_locals::length;
 				if (other.tape) {
-					memcpyWrapper(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
+					jsonifierMemcpy(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
 				}
 			}
 			return *this;
@@ -779,7 +779,7 @@ namespace jsonifier::internal {
 				tapeCount = other.tapeCount;
 				length	  = other.length;
 				if (other.tape) {
-					memcpyWrapper(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
+					jsonifierMemcpy(tape, other.tape, sizeof(*tape) * (other.tapeCount + 1));
 				}
 			}
 			return *this;

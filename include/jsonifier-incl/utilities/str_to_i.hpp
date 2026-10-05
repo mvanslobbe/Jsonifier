@@ -1003,6 +1003,5 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 		}
-
 	};
 }

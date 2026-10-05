@@ -132,7 +132,7 @@ namespace string_literal_comparator_impl_tests {
 			mprotect(region, pageSize, PROT_READ | PROT_WRITE);
 #endif
 			ptr = static_cast<jsonifier::write_buffer_ptr>(region) + pageSize - len;
-			jsonifier::memcpyWrapper(ptr, src, len);
+			jsonifier::internal::jsonifierMemcpy(ptr, src, len);
 		}
 
 		~guarded_buffer() {

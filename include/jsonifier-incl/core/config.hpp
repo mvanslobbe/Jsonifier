@@ -46,7 +46,7 @@
 	#include <unistd.h>
 #endif
 
-template<typename... arg_types> inline void jsonifier_fail_memcpy_impl(arg_types&&...) {
+template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&...) {
 	static_assert(sizeof...(arg_types) == 0,
 		"Sorry, but un-constrained memcpy is banned in this library! Only use our public-facing include <jsonifier> in your code! Or, if you're inside our own headers, remove "
 		"the std library include you just added.");
@@ -54,8 +54,8 @@ template<typename... arg_types> inline void jsonifier_fail_memcpy_impl(arg_types
 
 namespace std {
 
-	template<typename... arg_types> inline void jsonifier_fail_memcpy_impl(arg_types&&... args) {
-		::jsonifier_fail_memcpy_impl(args...);
+	template<typename... arg_types> inline void jsonifierFailMemcpyImpl(arg_types&&... args) {
+		::jsonifierFailMemcpyImpl(args...);
 	}
 
 }
@@ -94,7 +94,7 @@ namespace jsonifier {
 #define reinterpret_cast jsonifier::banned_reinterpret_cast
 #define const_cast jsonifier::banned_const_cast
 #define dynamic_cast jsonifier::banned_dynamic_cast
-#define memcpy(...) jsonifier_fail_memcpy_impl(__VA_ARGS__)
+#define memcpy(...) jsonifierFailMemcpyImpl(__VA_ARGS__)
 
 	struct serialize_options {
 		uint64_t indentSize{ 3 };

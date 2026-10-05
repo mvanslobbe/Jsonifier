@@ -511,7 +511,7 @@ namespace jsonifier::generic {
 
 	struct plain_string_copy_context {
 		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t length) const noexcept {
-			memcpyWrapper(ptrNew, source, length);
+			jsonifier::internal::jsonifierMemcpy(ptrNew, source, length);
 			return length;
 		}
 
@@ -551,7 +551,7 @@ namespace jsonifier::generic {
 
 	class value {
 	  public:
-		template<internal::buffer_like string_type> [[nodiscard]] inline error_code getString(string_type& out) const noexcept {
+		template<internal::buffer_like string_type> [[nodiscard]] JSONIFIER_INLINE error_code getString(string_type& out) const noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				return err;
 			}
@@ -702,7 +702,7 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE value findField(string_view key) const noexcept;
 		JSONIFIER_INLINE value operator[](uint64_t index) const noexcept;
-		inline value atPointer(string_view pointer) const noexcept;
+		JSONIFIER_INLINE value atPointer(string_view pointer) const noexcept;
 		JSONIFIER_INLINE object getObject() const noexcept;
 		JSONIFIER_INLINE array getArray() const noexcept;
 		JSONIFIER_INLINE value() noexcept = default;
@@ -749,7 +749,7 @@ namespace jsonifier::generic {
 			return noZeroCopy;
 		}
 
-		inline static bool validUtf8(read_buffer_ptr source, uint64_t length) noexcept {
+		JSONIFIER_INLINE static bool validUtf8(read_buffer_ptr source, uint64_t length) noexcept {
 			if (length > 64) {
 				return jsonifier::validateUtf8(std::bit_cast<const uint8_t*>(source), length);
 			}
@@ -821,7 +821,7 @@ namespace jsonifier::generic {
 				return error_code::success;
 			}
 			char* slot = doc->arena->slot(static_cast<uint64_t>(stringStart - doc->root));
-			memcpyWrapper(slot, scratch, scanned.outLength);
+			jsonifier::internal::jsonifierMemcpy(slot, scratch, scanned.outLength);
 			result = value_type{ slot, scanned.outLength };
 			return error_code::success;
 		}
@@ -909,9 +909,9 @@ namespace jsonifier::generic {
 			}
 		}
 
-		inline static bool unescapePointerToken(string_view& token, string& unescapedToken) noexcept;
-		inline value pointerStep(string_view token, string& unescapedToken) const noexcept;
-		inline static error_code parsePointerIndex(string_view token, uint64_t& index) noexcept;
+		JSONIFIER_INLINE static bool unescapePointerToken(string_view& token, string& unescapedToken) noexcept;
+		JSONIFIER_INLINE value pointerStep(string_view token, string& unescapedToken) const noexcept;
+		JSONIFIER_INLINE static error_code parsePointerIndex(string_view token, uint64_t& index) noexcept;
 
 		error_code err{ error_code::success };
 		const_structural_index_ptr iter{};
@@ -1003,7 +1003,7 @@ namespace jsonifier::generic {
 			uint64_t depth{};
 		};
 
-		[[nodiscard]] inline error_code countFields(uint64_t& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE error_code countFields(uint64_t& out) const noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				return err;
 			}
@@ -1315,7 +1315,7 @@ namespace jsonifier::generic {
 			return iterator{ state, position, depth };
 		}
 
-		[[nodiscard]] inline error_code countElements(uint64_t& out) const noexcept {
+		[[nodiscard]] JSONIFIER_INLINE error_code countElements(uint64_t& out) const noexcept {
 			if (err != error_code::success) [[unlikely]] {
 				return err;
 			}
@@ -1416,7 +1416,7 @@ namespace jsonifier::generic {
 		return getObject().findFieldUnordered(key);
 	}
 
-	inline value value::atPointer(string_view pointer) const noexcept {
+	JSONIFIER_INLINE value value::atPointer(string_view pointer) const noexcept {
 		value current{ *this };
 		string unescapedToken{};
 		const char* position   = pointer.data();
@@ -1435,7 +1435,7 @@ namespace jsonifier::generic {
 		return current;
 	}
 
-	inline value value::pointerStep(string_view token, string& unescapedToken) const noexcept {
+	JSONIFIER_INLINE value value::pointerStep(string_view token, string& unescapedToken) const noexcept {
 		switch (doc->charAt(iter)) {
 			case '{': {
 				return unescapePointerToken(token, unescapedToken) ? findField(token) : value{ error_code::invalid_json_pointer };
@@ -1451,7 +1451,7 @@ namespace jsonifier::generic {
 		}
 	}
 
-	inline bool value::unescapePointerToken(string_view& token, string& unescapedToken) noexcept {
+	JSONIFIER_INLINE bool value::unescapePointerToken(string_view& token, string& unescapedToken) noexcept {
 		if (!jsonifier::internal::char_comparison<'~', char>::memchar(token.data(), token.size())) {
 			return true;
 		}
@@ -1470,7 +1470,7 @@ namespace jsonifier::generic {
 		return true;
 	}
 
-	inline error_code value::parsePointerIndex(string_view token, uint64_t& index) noexcept {
+	JSONIFIER_INLINE error_code value::parsePointerIndex(string_view token, uint64_t& index) noexcept {
 		if (token.empty() || (token.size() > 1 && token[0] == '0')) [[unlikely]] {
 			return error_code::invalid_json_pointer;
 		}
@@ -1567,7 +1567,7 @@ namespace jsonifier::generic {
 			document_stream* stream{};
 		};
 
-		inline document_stream(parser_type& parserNew, read_buffer_ptr inputNew, uint64_t inputLengthNew, uint64_t batchSizeNew) noexcept
+		JSONIFIER_INLINE document_stream(parser_type& parserNew, read_buffer_ptr inputNew, uint64_t inputLengthNew, uint64_t batchSizeNew) noexcept
 			: input{ inputNew }, inputLength{ inputNew ? inputLengthNew : 0 }, parser{ &parserNew },
 			  batchSize{ std::clamp<uint64_t>(batchSizeNew, minimumBatchSize, maximumBatchSize) } {
 		}
@@ -1727,7 +1727,7 @@ namespace jsonifier::generic {
 			return state.skipValue(docBegin);
 		}
 
-		inline const_structural_index_ptr findDocumentEnd(const_structural_index_ptr start) noexcept {
+		JSONIFIER_INLINE const_structural_index_ptr findDocumentEnd(const_structural_index_ptr start) noexcept {
 			const document_state& state = parser->state;
 			const char first			= state.charAt(start);
 			if (document_state::isOpener(first)) {
@@ -1752,7 +1752,7 @@ namespace jsonifier::generic {
 			return start + 1;
 		}
 
-		inline void loadWindow(uint64_t start) noexcept {
+		JSONIFIER_INLINE void loadWindow(uint64_t start) noexcept {
 			windowStart				   = start;
 			windowLength			   = std::min(batchSize, inputLength - start);
 			finalWindow				   = start + windowLength == inputLength;

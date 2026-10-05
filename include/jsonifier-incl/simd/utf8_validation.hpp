@@ -4,7 +4,7 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/utf8_validation.hpp
  */
-// The code below drew heavy inspiration from Dr.Lemire's library, simdjson (https://github.com/simdjson/simdjson)
+// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 #pragma once
 
 #include <jsonifier-incl/utilities/utility.hpp>
@@ -191,7 +191,7 @@ namespace jsonifier::internal {
 		if (i < len) {
 			alignas(64) uint8_t tmp[simdBytesPerStep];
 			std::memset(tmp, 0x41, simdBytesPerStep);
-			memcpyWrapper(tmp, src + i, len - i);
+			jsonifierMemcpyUpTo<simdBytesPerStep - 1>(tmp, src + i, len - i);
 			checker.checkStep(tmp);
 		}
 
@@ -263,8 +263,8 @@ namespace jsonifier::internal {
 			}
 			touched			   = true;
 			const simd_type sc = checkSpecialCases(input, simd::opPrev<15>(input, prevInput));
-			error	  = simd::opOr(error, simd::opXor(simd::opAnd(mustBe23Continuation(simd::opPrev<14>(input, prevInput), simd::opPrev<13>(input, prevInput)), maskNibble01()), sc));
-			prevInput = input;
+			error = simd::opOr(error, simd::opXor(simd::opAnd(mustBe23Continuation(simd::opPrev<14>(input, prevInput), simd::opPrev<13>(input, prevInput)), maskNibble01()), sc));
+			prevInput		   = input;
 			incompleteRegister = simd::opSubs(input, incompleteMax());
 		}
 
@@ -306,12 +306,13 @@ namespace jsonifier::internal {
 			}
 			alignas(64) uint8_t tmp[bytesProcessed];
 			std::memset(tmp, 32, bytesProcessed);
-			memcpyWrapper(tmp, src, count);
+			jsonifierMemcpyUpTo<bytesProcessed - 1>(tmp, src, count);
 			checkRegister(simd::gatherValues<simd_type>(std::bit_cast<const simd_type* __restrict>(+tmp)));
 		}
 
 		JSONIFIER_INLINE simd_type checkSpecialCases(simd_type input, simd_type p1) noexcept {
-			return simd::opAnd(simd::opAnd(simd::opShuffle(lookupH(), simd::opAnd(simd::opSrLi<4>(p1), loNibbleMask())), simd::opShuffle(lookupL(), simd::opAnd(p1, loNibbleMask()))),
+			return simd::opAnd(
+				simd::opAnd(simd::opShuffle(lookupH(), simd::opAnd(simd::opSrLi<4>(p1), loNibbleMask())), simd::opShuffle(lookupL(), simd::opAnd(p1, loNibbleMask()))),
 				simd::opShuffle(lookup2(), simd::opAnd(simd::opSrLi<4>(input), loNibbleMask())));
 		}
 

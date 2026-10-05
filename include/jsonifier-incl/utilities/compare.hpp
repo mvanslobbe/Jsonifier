@@ -431,7 +431,7 @@ namespace jsonifier::internal {
 #else
 			alignas(64) static constexpr auto valuesNew{ pack_values<stringLiteral>::value };
 			jsonifier_simd_int_128 data1{};
-			memcpyWrapper(&data1, str, newCount);
+			jsonifierMemcpyUpTo<16>(&data1, str, newCount);
 			const jsonifier_simd_int_128 data2{ simd::gatherValues<jsonifier_simd_int_128>(valuesNew.data()) };
 			return simd::opTest(simd::opXor(data1, data2)) ? str + newCount : nullptr;
 #endif

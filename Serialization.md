@@ -46,7 +46,7 @@ The `op` Jsonifier passes is `serialize_writer_ro`, a small functor that holds a
 ```cpp
 template<serialize_options options, typename value_type> struct serialize_writer_ro {
 	JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr ptrNew, uint64_t) noexcept {
-		const write_buffer_ptr bufferPtr = serialize<options>::implInline(object, ptrNew, 0);
+		const write_buffer_ptr bufferPtr = serialize<options>::impl(object, ptrNew, 0);
 		return static_cast<uint64_t>(bufferPtr - ptrNew);
 	}
 	value_type& object;

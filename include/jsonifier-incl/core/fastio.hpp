@@ -125,7 +125,7 @@ namespace jsonifier::internal {
 				return;
 			}
 			ensureSpace(size);
-			memcpyWrapper(buffer_ + len_, data, size);
+			jsonifierMemcpy(buffer_ + len_, data, size);
 			len_ += size;
 		}
 

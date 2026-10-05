@@ -54,13 +54,15 @@ namespace jsonifier::internal {
 	template<parse_options options, typename context_type> using cursor_t = json_cursor<options, typename context_type::iterator_type>;
 
 #if JSONIFIER_COMPILER_MSVC
-	template<parse_options options, typename context_type> JSONIFIER_INLINE static void skipLeadingWhitespace([[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter) noexcept {
+	template<parse_options options, typename context_type>
+	JSONIFIER_INLINE static void skipLeadingWhitespace([[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter) noexcept {
 		if constexpr (!options.minified && !structural_context<context_type>) {
 			cursor_t<options, context_type>::skipWhitespaceScalar(iter, endIter);
 		}
 	}
 
-	template<parse_options options, typename context_type> JSONIFIER_INLINE static parse_result nextObjectMember(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+	template<parse_options options, typename context_type>
+	JSONIFIER_INLINE static parse_result nextObjectMember(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 		using cursor = cursor_t<options, context_type>;
 		cursor::skipWhitespaceClose(iter, endIter, context);
 		if (cursor::collectObjectSeparator(iter, endIter, context)) [[likely]] {
@@ -73,7 +75,8 @@ namespace jsonifier::internal {
 		return parse_result::failed;
 	}
 
-	template<parse_options options, typename context_type> JSONIFIER_INLINE static parse_result nextArrayElement(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+	template<parse_options options, typename context_type>
+	JSONIFIER_INLINE static parse_result nextArrayElement(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 		using cursor = cursor_t<options, context_type>;
 		cursor::skipWhitespaceClose(iter, endIter, context);
 		if (cursor::collectArraySeparator(iter, endIter, context)) [[likely]] {
@@ -90,8 +93,8 @@ namespace jsonifier::internal {
 		using cursor					  = cursor_t<options, context_type>;
 		static constexpr auto memberCount = coreTupleSize<value_type>;
 
-		template<uint64_t index>
-		JSONIFIER_NOT_ALWAYS_INLINE static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<uint64_t index> JSONIFIER_NOT_ALWAYS_INLINE static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter, auto endIter,
+			context_type& __restrict context) noexcept {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			if constexpr (structural_context<context_type>) {
@@ -181,8 +184,8 @@ namespace jsonifier::internal {
 			return parse_result::inactive_member;
 		}
 
-		template<uint64_t index>
-		JSONIFIER_NOINLINE static parse_result parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<uint64_t index> JSONIFIER_NOINLINE static parse_result parseMatchedMemberOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter,
+			context_type& __restrict context) noexcept {
 			static constexpr auto tupleElem	 = getBecauseOtherLibAuthorsResolve<index>(core<value_type>::parseValue);
 			static constexpr auto keyLiteral = escapedKeyLiteral<tupleElem.name>;
 			static constexpr auto ptrNew	 = tupleElem.memberPtr;
@@ -321,20 +324,23 @@ namespace jsonifier::internal {
 #if JSONIFIER_COMPILER_MSVC
 	template<template<typename, typename, parse_options> typename parsing_type, typename value_type, typename context_type, parse_options options, uint64_t... indices>
 	struct generateDispatchTableNew<parsing_type, value_type, context_type, options, integer_sequence<indices...>> {
-		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context, uint64_t currentIndex) noexcept {
+		JSONIFIER_INLINE static parse_result impl(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context,
+			uint64_t currentIndex) noexcept {
 			parse_result result{ parse_result::inactive_member };
 			static_cast<void>(
-				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, endIter, context), true) : false) ||
+				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndex<indices>(value, iter, endIter, context), true)
+										  : false) ||
 					...));
 			return result;
 		}
 
-		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context, uint64_t currentIndex) noexcept {
+		JSONIFIER_NOINLINE static parse_result implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context,
+			uint64_t currentIndex) noexcept {
 			parse_result result{ parse_result::inactive_member };
-			static_cast<void>((
-				(currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, endIter, context), true)
-										 : false) ||
-				...));
+			static_cast<void>(
+				((currentIndex == indices ? (result = parsing_type<value_type, context_type, options>::template processIndexOutline<indices>(value, iter, endIter, context), true)
+										  : false) ||
+					...));
 			return result;
 		}
 	};
@@ -381,8 +387,8 @@ namespace jsonifier::internal {
 		static constexpr auto memberCount{ coreTupleSize<typename json_entity_type::class_type> };
 
 #if JSONIFIER_COMPILER_MSVC
-		template<typename value_type, typename context_type>
-		JSONIFIER_NOT_ALWAYS_INLINE static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<typename value_type, typename context_type> JSONIFIER_NOT_ALWAYS_INLINE static parse_result processIndex(value_type& __restrict value, auto&& __restrict iter,
+			auto endIter, context_type& __restrict context) noexcept {
 			using cursor   = cursor_t<options, context_type>;
 			using dispatch = generateDispatchTableNew<parse_types_impl, value_type, context_type, options, make_integer_sequence<memberCount>>;
 			if constexpr (options.minified && options.knownOrder && !structural_context<context_type>) {
@@ -860,17 +866,15 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	template<typename... bases> struct parse_map : public bases... {
-		template<typename value_type, typename context_type>
-		JSONIFIER_INLINE static parse_result iterateValues([[maybe_unused]] value_type& __restrict value, [[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter,
-			[[maybe_unused]] context_type& __restrict context) noexcept {
+		template<typename value_type, typename context_type> JSONIFIER_INLINE static parse_result iterateValues([[maybe_unused]] value_type& __restrict value,
+			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter, [[maybe_unused]] context_type& __restrict context) noexcept {
 			parse_result result{ parse_result::active_member };
 			static_cast<void>(((result = bases::processIndex(value, iter, endIter, context), result == parse_result::active_member) && ...));
 			return result;
 		}
 
-		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static parse_result iterateValuesOutline([[maybe_unused]] value_type& __restrict value, [[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter,
-			[[maybe_unused]] context_type& __restrict context) noexcept {
+		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static parse_result iterateValuesOutline([[maybe_unused]] value_type& __restrict value,
+			[[maybe_unused]] auto&& __restrict iter, [[maybe_unused]] auto endIter, [[maybe_unused]] context_type& __restrict context) noexcept {
 			parse_result result{ parse_result::active_member };
 			static_cast<void>(((result = bases::processIndexOutline(value, iter, endIter, context), result == parse_result::active_member) && ...));
 			return result;
@@ -1170,7 +1174,8 @@ namespace jsonifier::internal {
 
 	template<typename value_type> static thread_local uint64_t elementCountHint{};
 
-	template<typename value_type> static constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
+	template<typename value_type>
+	static constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
 
 	template<typename value_type> JSONIFIER_INLINE static void reserveFromHint(value_type& value) noexcept {
 		if constexpr (has_reserve<value_type>) {
@@ -1441,15 +1446,15 @@ namespace jsonifier::internal {
 		using cursor					  = cursor_t<options, context_type>;
 		static constexpr auto memberCount = tuple_size_v<value_type>;
 
-		template<uint64_t index> JSONIFIER_INLINE static bool parseMember(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<uint64_t index>
+		JSONIFIER_INLINE static bool parseMember(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 			return parse<options>::impl(get<index>(value), iter, endIter, context);
 		}
 
-		template<uint64_t... indices>
-		JSONIFIER_INLINE static bool parseRest(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context, integer_sequence<indices...>) noexcept {
+		template<uint64_t... indices> JSONIFIER_INLINE static bool parseRest(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context,
+			integer_sequence<indices...>) noexcept {
 			bool succeeded{ true };
-			static_cast<void>(
-				((cursor::template incrementIfEquals<','>(iter, endIter, context) && (succeeded = parseMember<indices + 1>(value, iter, endIter, context))) && ...));
+			static_cast<void>(((cursor::template incrementIfEquals<','>(iter, endIter, context) && (succeeded = parseMember<indices + 1>(value, iter, endIter, context))) && ...));
 			return succeeded;
 		}
 
@@ -1488,12 +1493,13 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<uint64_t index> JSONIFIER_NOINLINE static bool parseMemberOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<uint64_t index>
+		JSONIFIER_NOINLINE static bool parseMemberOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 			return parseMember<index>(value, iter, endIter, context);
 		}
 
-		template<uint64_t... indices>
-		JSONIFIER_NOINLINE static bool parseRestOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context, integer_sequence<indices...>) noexcept {
+		template<uint64_t... indices> JSONIFIER_NOINLINE static bool parseRestOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter,
+			context_type& __restrict context, integer_sequence<indices...>) noexcept {
 			bool succeeded{ true };
 			static_cast<void>(
 				((cursor::template incrementIfEquals<','>(iter, endIter, context) && (succeeded = parseMemberOutline<indices + 1>(value, iter, endIter, context))) && ...));
@@ -1758,7 +1764,8 @@ namespace jsonifier::internal {
 		}
 	};
 
-	template<parse_options options, typename context_type> JSONIFIER_INLINE static bool isNullValue(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+	template<parse_options options, typename context_type>
+	JSONIFIER_INLINE static bool isNullValue(auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 		using cursor = cursor_t<options, context_type>;
 		skipLeadingWhitespace<options, context_type>(iter, endIter);
 		return !cursor::notAtEnd(iter, endIter) || *cursor::valuePtr(iter, context) == 'n';
@@ -1886,7 +1893,7 @@ namespace jsonifier::internal {
 			if (newSize > 0) [[likely]] {
 				string newString{};
 				newString.resize(newSize);
-				memcpyWrapper(newString.data(), newPtr, newSize);
+				jsonifierMemcpy(newString.data(), newPtr, newSize);
 				value = value_type{ context, newString };
 			}
 			return true;
@@ -2628,7 +2635,7 @@ namespace jsonifier::internal {
 			if (newSize > 0) [[likely]] {
 				string newString{};
 				newString.resize(newSize);
-				memcpyWrapper(newString.data(), newPtr, newSize);
+				jsonifierMemcpy(newString.data(), newPtr, newSize);
 				value = value_type{ context, newString };
 			}
 			return iter;

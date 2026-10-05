@@ -4,7 +4,7 @@
  * https://github.com/nihilai-collective/jsonifier
  * include/jsonifier-incl/simd/sve2_stage1.hpp
  */
-// The code below drew heavy inspiration from Dr. Lemire's library, simdjson (https://github.com/simdjson/simdjson)
+// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 #pragma once
 
 #include <jsonifier-incl/simd/neon.hpp>

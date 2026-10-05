@@ -44,7 +44,7 @@ namespace jsonifier::internal {
 
 	template<typename string_type, typename source_type> struct copy_string_context {
 		JSONIFIER_INLINE uint64_t operator()(remove_pointer_t<typename string_type::pointer>* __restrict ptrNew, uint64_t) const noexcept {
-			memcpyWrapper(ptrNew, srcPtr, length);
+			jsonifierMemcpy(ptrNew, srcPtr, length);
 			return length;
 		}
 
@@ -59,7 +59,7 @@ namespace jsonifier::internal {
 			if constexpr (has_resize<string_type>) {
 				value.resize(length);
 			}
-			memcpyWrapper(value.data(), srcPtr, length);
+			jsonifierMemcpy(value.data(), srcPtr, length);
 		}
 	}
 
@@ -181,11 +181,11 @@ namespace jsonifier::internal {
 		}
 	}
 
-	template<parse_options parseOpts, string_t string_type, typename buffer_type> JSONIFIER_INLINE static bool parseBoundedStringContents(string_type& value, read_buffer_ptr strPtr,
-		read_buffer_ptr boundPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) noexcept {
+	template<parse_options parseOpts, string_t string_type, typename buffer_type> JSONIFIER_INLINE static bool parseBoundedStringContents(string_type& value,
+		read_buffer_ptr strPtr, read_buffer_ptr boundPtr, read_buffer_ptr endPtr, buffer_type& scratch, uint64_t& rawLength) noexcept {
 		if constexpr (has_resize_and_overwrite<string_type>) {
 			if (boundPtr > strPtr && static_cast<uint64_t>(boundPtr - strPtr) >= simdBytesPerRegister) {
-				const uint64_t bound			= static_cast<uint64_t>(boundPtr - strPtr);
+				const uint64_t bound		  = static_cast<uint64_t>(boundPtr - strPtr);
 				const read_buffer_ptr scanEnd = static_cast<uint64_t>(endPtr - boundPtr) > simdBytesPerRegister ? boundPtr + simdBytesPerRegister : endPtr;
 				typename string_scanner<parseOpts>::scan_result res{};
 				value.resize_and_overwrite(bound + simdBytesPerRegister, iterate_string_context<parseOpts, string_type>{ res, strPtr, scanEnd });

@@ -299,6 +299,108 @@ namespace jsonifier::internal {
 		static constexpr uint64_t value{ 32 };
 	};
 
+	template<uint64_t chunk_bytes> JSONIFIER_INLINE void copyOverlappingChunks(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
+		pow2MemcpyWrapper<chunk_bytes>(dst, src);
+		pow2MemcpyWrapper<chunk_bytes>(dst + byte_count - chunk_bytes, src + byte_count - chunk_bytes);
+	}
+
+	template<uint64_t bit_index> JSONIFIER_INLINE void copyBit(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count, uint64_t& __restrict offset) {
+		if ((byte_count >> bit_index) & 1ull) {
+			pow2MemcpyWrapper<1ull << bit_index>(dst + offset, src + offset);
+			offset += 1ull << bit_index;
+		}
+	}
+
+	JSONIFIER_INLINE static void copy_decomposed(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
+		uint64_t offset{};
+		copyBit<7>(dst, src, byte_count, offset);
+		copyBit<6>(dst, src, byte_count, offset);
+		copyBit<5>(dst, src, byte_count, offset);
+		copyBit<4>(dst, src, byte_count, offset);
+		copyBit<3>(dst, src, byte_count, offset);
+		copyBit<2>(dst, src, byte_count, offset);
+		copyBit<1>(dst, src, byte_count, offset);
+		copyBit<0>(dst, src, byte_count, offset);
+	}
+
+	template<uint64_t max_bytes> JSONIFIER_INLINE void jsonifierMemcpyUpTo(void* __restrict destination, const void* __restrict source, uint64_t byte_count) {
+		std::byte* __restrict dst		= static_cast<std::byte*>(destination);
+		const std::byte* __restrict src = static_cast<const std::byte*>(source);
+		switch (std::bit_width(byte_count)) {
+			case 0: {
+				return;
+			}
+			case 1: {
+				*dst = *src;
+				return;
+			}
+			case 2: {
+				if constexpr (max_bytes >= 2) {
+					copyOverlappingChunks<2>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 3: {
+				if constexpr (max_bytes >= 4) {
+					copyOverlappingChunks<4>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 4: {
+				if constexpr (max_bytes >= 8) {
+					copyOverlappingChunks<8>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 5: {
+				if constexpr (max_bytes >= 16) {
+					copyOverlappingChunks<16>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 6: {
+				if constexpr (max_bytes >= 32) {
+					copyOverlappingChunks<32>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 7: {
+				if constexpr (max_bytes >= 64) {
+					copyOverlappingChunks<64>(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			case 8: {
+				if constexpr (max_bytes >= 128) {
+					copy_decomposed(dst, src, byte_count);
+					return;
+				} else {
+					break;
+				}
+			}
+			default: {
+				break;
+			}
+		}
+		memcpyWrapper(dst, src, byte_count);
+	}
+
+	JSONIFIER_INLINE void jsonifierMemcpy(void* __restrict destination, const void* __restrict source, uint64_t byte_count) {
+		jsonifierMemcpyUpTo<std::numeric_limits<uint64_t>::max()>(destination, source, byte_count);
+	}
+
 }
 
 #include <jsonifier-incl/containers/tuple.hpp>

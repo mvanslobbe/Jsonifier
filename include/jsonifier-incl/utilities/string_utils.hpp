@@ -85,13 +85,13 @@ namespace jsonifier::internal {
 			0xFFFFFFFFu };
 	};
 
-	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
 		return digit_tables<>::digitToVal32[630ull + static_cast<uint64_t>(string1[0])] | digit_tables<>::digitToVal32[420ull + static_cast<uint64_t>(string1[1])] |
 			digit_tables<>::digitToVal32[210ull + static_cast<uint64_t>(string1[2])] | digit_tables<>::digitToVal32[0ull + static_cast<uint64_t>(string1[3])];
 	}
 
-	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, write_buffer_ptr c) noexcept {
 		if (cp <= 0x7F) {
 			c[0] = static_cast<char>(cp);
@@ -118,7 +118,7 @@ namespace jsonifier::internal {
 		return 0;
 	}
 
-	// Sampled from Simdjson library: https://github.com/simdjson/simdjson
+	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	template<typename basic_iterator01, typename basic_iterator02>
 	JSONIFIER_INLINE static bool handleUnicodeCodePoint(basic_iterator01& srcPtr, basic_iterator02& dstPtr, basic_iterator01 srcEnd) noexcept {
 		static constexpr uint8_t bs{ '\\' };
@@ -170,7 +170,7 @@ namespace jsonifier::internal {
 		return static_cast<integer_type>(simd::countrZero(next) >> 3u);
 	}
 
-	// Sampled from Stephen Berry and his library, Glaze library: https://github.com/StephenBerry/Glaze
+	// Sampled from Stephen Berry's library, Glaze: https://github.com/StephenBerry/Glaze
 	template<typename basic_iterator01> [[maybe_unused]] JSONIFIER_INLINE static void skipStringImpl(basic_iterator01& string1, uint64_t lengthNew) noexcept {
 		if (static_cast<int64_t>(lengthNew) > 0) {
 			const auto endIter = string1 + lengthNew;
@@ -560,7 +560,7 @@ namespace jsonifier::internal {
 						copyState.failed = true;
 						return nullptr;
 					}
-					memcpyWrapper(string2, string1Start, remaining);
+					jsonifierMemcpy(string2, string1Start, remaining);
 					return nullptr;
 				} else {
 					return string1Start;
@@ -621,7 +621,7 @@ namespace jsonifier::internal {
 						escapeChar = escapeTable[nextChar];
 						string2 += nextEscapeable;
 						string1Start += nextEscapeable;
-						memcpyWrapper(string2, escapeChar, nextSize);
+						jsonifierMemcpy(string2, escapeChar, nextSize);
 						string2 += nextSize;
 						++string1Start;
 					} else {
@@ -652,7 +652,7 @@ namespace jsonifier::internal {
 				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
 				const uint64_t escapeSize = escapeTableSizes[nextChar];
 				if (escapeSize > 0) {
-					memcpyWrapper(string2, escapeTable[nextChar], escapeSize);
+					jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
 					string2 += escapeSize;
 				} else {
 					*string2 = *string1Start;
@@ -682,7 +682,7 @@ namespace jsonifier::internal {
 				string2 += offset;
 				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
 				const uint64_t escapeSize = escapeTableSizes[nextChar];
-				memcpyWrapper(string2, escapeTable[nextChar], escapeSize);
+				jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
 				string2 += escapeSize;
 				++string1Start;
 			}
@@ -749,6 +749,58 @@ namespace jsonifier::internal {
 			return scalarImpl(string1Start, string1End, string2);
 		}
 
+		// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static void copyUpTo16(basic_iterator02 destination, basic_iterator01 source, uint64_t length) noexcept {
+			if (length >= 8) {
+				pow2MemcpyWrapper<8>(destination, source);
+				pow2MemcpyWrapper<8>(destination + length - 8, source + length - 8);
+			} else if (length >= 4) {
+				pow2MemcpyWrapper<4>(destination, source);
+				pow2MemcpyWrapper<4>(destination + length - 4, source + length - 4);
+			} else if (length > 0) {
+				destination[0]			= source[0];
+				destination[length >> 1] = source[length >> 1];
+				destination[length - 1]	= source[length - 1];
+			}
+		}
+
+		// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
+		template<typename basic_iterator01, typename basic_iterator02>
+		JSONIFIER_INLINE static basic_iterator02 overlappedFinish(basic_iterator01& string1Start, const basic_iterator01 string1End, basic_iterator02 string2) noexcept {
+			const uint64_t remaining = static_cast<uint64_t>(string1End - string1Start);
+			if (remaining == 0) {
+				return string2;
+			}
+			using simd_list_local						= type_list_element_t<2, simd::avx_integer_list>;
+			using integer_type							= typename simd_list_local::integer_type;
+			using simd_type								= typename simd_list_local::type::type;
+			static constexpr uint64_t bitsPerByte		= sizeof(integer_type) * 8 / 16;
+			const simd_type simdValue					= simd::gatherValuesU<simd_type>(string1End - 16);
+			const simd_type simdValues01				= simd::gatherValue<simd_type>('"');
+			const simd_type simdValues02				= simd::gatherValue<simd_type>('\\');
+			const simd_type simdValues03				= simd::gatherValue<simd_type>(static_cast<char>(32));
+			const auto flagged							= simd::opOr(simd::opOr(simd::opCmpLtRaw(simdValue, simdValues03), simd::opCmpEqRaw(simdValue, simdValues02)),
+														  simd::opCmpEqRaw(simdValue, simdValues01));
+			integer_type escapeMask						= static_cast<integer_type>(static_cast<integer_type>(simd::opBitMaskRaw(flagged)) >> (bitsPerByte * (16 - remaining)));
+			while (escapeMask != 0) {
+				const uint64_t runLength = simd::postCmpTzcntUnsafe(escapeMask);
+				copyUpTo16(string2, string1Start, runLength);
+				string2 += runLength;
+				string1Start += runLength;
+				const uint8_t nextChar	  = static_cast<uint8_t>(*string1Start);
+				const uint64_t escapeSize = escapeTableSizes[nextChar];
+				jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
+				string2 += escapeSize;
+				++string1Start;
+				escapeMask = static_cast<integer_type>(static_cast<integer_type>(escapeMask >> (bitsPerByte * runLength)) >> bitsPerByte);
+			}
+			const uint64_t trailing = static_cast<uint64_t>(string1End - string1Start);
+			copyUpTo16(string2, string1Start, trailing);
+			string1Start = string1End;
+			return string2 + trailing;
+		}
+
 		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static basic_iterator02 impl(basic_iterator01 string1Start, basic_iterator02 string2, uint64_t lengthNew) noexcept {
 			if (lengthNew < 8) {
@@ -757,6 +809,7 @@ namespace jsonifier::internal {
 			const basic_iterator01 string1End = string1Start + lengthNew;
 			if (lengthNew >= 16) {
 				string_parse_executor<string_serialize_step, make_ascending_range<start_index, list_size>>::impl(string1Start, string1End, string2);
+				return overlappedFinish(string1Start, string1End, string2);
 			}
 			return swarFinish(string1Start, string1End, string2);
 		}

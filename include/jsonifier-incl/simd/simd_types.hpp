@@ -46,7 +46,7 @@ namespace jsonifier {
 	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 4;
 		#elif JSONIFIER_COMPILER_GCC
-static constexpr uint64_t simdTapeStep		= 4;
+	static constexpr uint64_t simdTapeStep		= 4;
 	static constexpr uint64_t simdBlocksPerStep = 8;
 		#else
 	static constexpr uint64_t simdTapeStep		= 4;

@@ -133,7 +133,7 @@ namespace jsonifier::internal {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpyWrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}
@@ -148,7 +148,7 @@ namespace jsonifier::internal {
 						newPtr = stringRootIter + *iter;
 						++iter;
 						status.newSize = static_cast<uint64_t>((stringRootIter + *iter) - newPtr);
-						memcpyWrapper(&outBuffer[status.index], newPtr, status.newSize);
+						jsonifierMemcpy(&outBuffer[status.index], newPtr, status.newSize);
 						status.index += status.newSize;
 						break;
 					}

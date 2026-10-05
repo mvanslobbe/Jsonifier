@@ -38,7 +38,8 @@ namespace jsonifier::internal {
 
 #if JSONIFIER_COMPILER_MSVC
 	template<parse_options options> struct parse {
-		template<typename value_type, typename context_type> inline static bool impl(value_type&& value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<typename value_type, typename context_type>
+		inline static bool impl(value_type&& value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
 				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, endIter, context);
 			} else {
@@ -46,7 +47,8 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename value_type, typename context_type> JSONIFIER_NOINLINE static bool implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
+		template<typename value_type, typename context_type>
+		JSONIFIER_NOINLINE static bool implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
 			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, endIter, context);
 		}
 	};
@@ -301,10 +303,12 @@ namespace jsonifier::internal {
 			}
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
-				parse_context<parseOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter, endIter };
+				parse_context<parseOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
+					rootIter, endIter };
 				return runParse<parseOpts>(object, derivedRef.section.begin(), derivedRef.section.end(), context);
 			} else {
-				parse_context<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter, endIter };
+				parse_context<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
+					endIter };
 				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), static_cast<read_buffer_ptr>(endIter), context);
 			}
 		}

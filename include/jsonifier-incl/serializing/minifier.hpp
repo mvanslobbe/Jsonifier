@@ -116,7 +116,7 @@ namespace jsonifier::internal {
 					case static_cast<uint64_t>(string): {
 						backTrackWs(currentDistance, previousPtr, iter, rootIter);
 						if (currentDistance > 0) [[likely]] {
-							memcpyWrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
+							jsonifierMemcpy(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
 							index += static_cast<uint64_t>(currentDistance);
 						} else {
 							derivedRef.errors.emplace_back(
@@ -134,7 +134,7 @@ namespace jsonifier::internal {
 						currentDistance = 0;
 						while (!whitespaceTable[static_cast<uint8_t>(previousPtr[++currentDistance])] && ((previousPtr + currentDistance) < (rootIter + *iter))) {
 						}
-						memcpyWrapper(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
+						jsonifierMemcpy(&outBuffer[index], previousPtr, static_cast<uint64_t>(currentDistance));
 						index += static_cast<uint64_t>(currentDistance);
 						break;
 					}
