@@ -266,104 +266,28 @@ namespace jsonifier {
 			value.emplace<null_type>();
 		}
 
-#if JSONIFIER_COMPILER_MSVC
-	  protected:
-		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
-			static constexpr parse_options optionsNew{};
-			read_buffer_ptr iter{ jsonDataNew.data() };
-			const read_buffer_ptr end{ jsonDataNew.data() + jsonDataNew.size() };
-			if (jsonDataNew.size() > 0) {
-				switch (jsonDataNew[0]) {
-					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, context));
-						if (context.getErrors().size() != 0) {
-							value.emplace<null_type>();
-						}
-						return;
-					}
-					case 't':
-						value.emplace<bool_type>(true);
-						return;
-					case 'f': {
-						value.emplace<bool_type>(false);
-						return;
-					}
-					case 'n': {
-						value.emplace<null_type>();
-						return;
-					}
-					case '0':
-						[[fallthrough]];
-					case '1':
-						[[fallthrough]];
-					case '2':
-						[[fallthrough]];
-					case '3':
-						[[fallthrough]];
-					case '4':
-						[[fallthrough]];
-					case '5':
-						[[fallthrough]];
-					case '6':
-						[[fallthrough]];
-					case '7':
-						[[fallthrough]];
-					case '8':
-						[[fallthrough]];
-					case '9':
-						[[fallthrough]];
-					case '-': {
-						value.emplace<number_type>(jsonDataNew);
-						return;
-					}
-					default: {
-						value.emplace<null_type>();
-						return;
-					}
-				}
-			} else {
-				value.emplace<null_type>();
-				return;
-			}
-		}
-#else
 	  protected:
 		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
 			const read_buffer_ptr iter{ jsonDataNew.data() };
-			const read_buffer_ptr end{ jsonDataNew.data() + jsonDataNew.size() };
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<object_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '[': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<array_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
 						return;
 					}
 					case '"': {
-						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, end, 0, context));
+						static_cast<void>(internal::parse<optionsNew>::impl(value.emplace<string_type>(), iter, 0, context));
 						if (context.getErrors().size() != 0) {
 							value.emplace<null_type>();
 						}
@@ -414,7 +338,6 @@ namespace jsonifier {
 				return;
 			}
 		}
-#endif
 
 		value_type value{};
 	};

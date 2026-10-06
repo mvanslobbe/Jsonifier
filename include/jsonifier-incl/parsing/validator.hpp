@@ -40,22 +40,21 @@ namespace jsonifier::internal {
 			auto endIter  = getEndIter(in);
 			derivedRef.section.template reset<optionsVal.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 			parse_context<optionsVal, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
-				endIter };
+				endIter, derivedRef.section.end() };
 			auto newSize = static_cast<uint64_t>(endIter - rootIter) / 2;
 			if (derivedRef.stringBuffer.size() < newSize) {
 				derivedRef.stringBuffer.resize(newSize);
 			}
 			derivedRef.errors.clear();
 			const structural_index_ptr iter{ derivedRef.section.begin() };
-			const structural_index_ptr end{ derivedRef.section.end() };
-			if (!cursor::anyInput(iter, end, context)) {
+			if (!cursor::anyInput(iter, context)) {
 				return false;
 			}
-			const structural_index_ptr iterNew = impl(iter, end, 0, context);
+			const structural_index_ptr iterNew = impl(iter, 0, context);
 			if (!iterNew) {
 				return false;
 			}
-			static_cast<void>(cursor::checkIfDone(iterNew, end, context));
+			static_cast<void>(cursor::checkIfDone(iterNew, context));
 			return derivedRef.errors.size() == 0;
 		}
 
@@ -70,53 +69,53 @@ namespace jsonifier::internal {
 		inline validator() noexcept					 = default;
 
 		template<typename context_type>
-		inline static structural_index_ptr impl(structural_index_ptr iter, structural_index_ptr end, uint64_t depth, context_type& context) noexcept {
-			if (!cursor::notAtEnd(iter, end)) {
+		inline static structural_index_ptr impl(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!cursor::notAtEnd(iter, context)) {
 				return nullptr;
 			}
 			const auto c = *cursor::valuePtr(iter, context);
 			if (c == '{') {
-				return validateObject(iter, end, depth, context);
+				return validateObject(iter, depth, context);
 			} else if (c == '[') {
-				return validateArray(iter, end, depth, context);
+				return validateArray(iter, depth, context);
 			} else if (c == '"') {
-				return validateString(iter, end, context);
+				return validateString(iter, context);
 			} else if (numberTable[static_cast<uint8_t>(c)]) {
-				return validateNumber(iter, end, context);
+				return validateNumber(iter, context);
 			} else if (boolTable[static_cast<uint8_t>(c)]) {
-				return validateBool(iter, end, context);
+				return validateBool(iter, context);
 			} else if (c == 'n') {
-				return validateNull(iter, end, context);
+				return validateNull(iter, context);
 			} else {
 				return nullptr;
 			}
 		}
 
 		template<typename context_type>
-		inline static structural_index_ptr validateObject(structural_index_ptr iter, structural_index_ptr end, uint64_t depth, context_type& context) noexcept {
-			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'{'>(iter, end, context))) [[unlikely]] {
+		inline static structural_index_ptr validateObject(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'{'>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}
 			++iter;
-			if (cursor::template checkChar<'}'>(iter, end, context)) [[unlikely]] {
+			if (cursor::template checkChar<'}'>(iter, context)) [[unlikely]] {
 				return ++iter;
 			}
-			while (cursor::notAtEnd(iter, end)) {
-				iter = validateString(iter, end, context);
+			while (cursor::notAtEnd(iter, context)) {
+				iter = validateString(iter, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
-				if (!cursor::template checkChar<':'>(iter, end, context)) [[unlikely]] {
+				if (!cursor::template checkChar<':'>(iter, context)) [[unlikely]] {
 					return nullptr;
 				}
 				++iter;
-				iter = validator<derived_type_new>::impl(iter, end, depth + 1, context);
+				iter = validator<derived_type_new>::impl(iter, depth + 1, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
-				if (cursor::template checkChar<','>(iter, end, context)) [[likely]] {
+				if (cursor::template checkChar<','>(iter, context)) [[likely]] {
 					++iter;
-				} else if (cursor::template checkChar<'}'>(iter, end, context)) {
+				} else if (cursor::template checkChar<'}'>(iter, context)) {
 					return ++iter;
 				} else {
 					return nullptr;
@@ -126,22 +125,22 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type>
-		inline static structural_index_ptr validateArray(structural_index_ptr iter, structural_index_ptr end, uint64_t depth, context_type& context) noexcept {
-			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'['>(iter, end, context))) [[unlikely]] {
+		inline static structural_index_ptr validateArray(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'['>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}
 			++iter;
-			if (cursor::template checkChar<']'>(iter, end, context)) [[unlikely]] {
+			if (cursor::template checkChar<']'>(iter, context)) [[unlikely]] {
 				return ++iter;
 			}
-			while (cursor::notAtEnd(iter, end)) {
-				iter = validator<derived_type_new>::impl(iter, end, depth + 1, context);
+			while (cursor::notAtEnd(iter, context)) {
+				iter = validator<derived_type_new>::impl(iter, depth + 1, context);
 				if (!iter) [[unlikely]] {
 					return nullptr;
 				}
-				if (cursor::template checkChar<','>(iter, end, context)) [[likely]] {
+				if (cursor::template checkChar<','>(iter, context)) [[likely]] {
 					++iter;
-				} else if (cursor::template checkChar<']'>(iter, end, context)) {
+				} else if (cursor::template checkChar<']'>(iter, context)) {
 					return ++iter;
 				} else {
 					return nullptr;
@@ -151,13 +150,13 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateString(structural_index_ptr iter, structural_index_ptr end, context_type& context) noexcept {
-			if (!cursor::template checkChar<'"'>(iter, end, context)) [[unlikely]] {
+		JSONIFIER_INLINE static structural_index_ptr validateString(structural_index_ptr iter, context_type& context) noexcept {
+			if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 				return nullptr;
 			}
 			auto newPtr = cursor::valuePtr(iter, context);
 			++iter;
-			auto endPtr		   = cursor::notAtEnd(iter, end) ? cursor::valuePtr(iter, context) : (newPtr + (end - iter));
+			auto endPtr		   = cursor::notAtEnd(iter, context) ? cursor::valuePtr(iter, context) : (newPtr + (context.endIter - iter));
 			using scanner_type = string_scanner<optionsVal>;
 			auto& scratch	   = context.getStringBuffer();
 			const auto needed  = static_cast<uint64_t>(endPtr - newPtr) + simdBytesPerStep;
@@ -168,14 +167,14 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, structural_index_ptr end, context_type& context) noexcept {
+		JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, context_type& context) noexcept {
 			auto newPtr = cursor::valuePtr(iter, context);
 			++iter;
-			if (cursor::notAtEnd(iter, end) && (*newPtr != 0x30u || !numberTable[static_cast<uint64_t>(*(newPtr + 1))])) [[likely]] {
+			if (cursor::notAtEnd(iter, context) && (*newPtr != 0x30u || !numberTable[static_cast<uint64_t>(*(newPtr + 1))])) [[likely]] {
 				consumeSign(newPtr);
 				consumeDigits(newPtr);
 				if (consumeChar(0x2Eu, newPtr)) {
-					if (!cursor::notAtEnd(iter, end) || !consumeDigits(newPtr)) {
+					if (!cursor::notAtEnd(iter, context) || !consumeDigits(newPtr)) {
 						return nullptr;
 					}
 				}
@@ -213,8 +212,8 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, structural_index_ptr end, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, end) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context))) [[likely]] {
+		JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, context_type& context) noexcept {
+			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context))) [[likely]] {
 				return ++iter;
 			} else {
 				return nullptr;
@@ -222,8 +221,8 @@ namespace jsonifier::internal {
 		}
 
 		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, structural_index_ptr end, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, end) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context))) [[likely]] {
+		JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, context_type& context) noexcept {
+			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context))) [[likely]] {
 				return ++iter;
 			} else {
 				return nullptr;

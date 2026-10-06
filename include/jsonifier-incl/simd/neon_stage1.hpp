@@ -37,6 +37,28 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateWhitespaceArrayNeon() {
+		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
+		internal::array<uint8_t, size> returnValues{};
+		for (uint64_t x = 0; x < size; ++x) {
+			returnValues[x] = values[x % 16];
+		}
+		return returnValues;
+	};
+
+	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
+
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateOpArrayNeon() {
+		constexpr const uint8_t values[]{ 0xFFu, 0x00u, ',', ':', 0x00u, '[', ']', '{', '}', 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
+		internal::array<uint8_t, size> returnValues{};
+		for (uint64_t x = 0; x < size; ++x) {
+			returnValues[x] = values[x % 16];
+		}
+		return returnValues;
+	};
+
+	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
+
 	struct unescaped_collector {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
 			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
@@ -185,8 +207,10 @@ namespace jsonifier::internal::simd {
 			rope_block::inString	= inString;
 		}
 
-		JSONIFIER_INLINE void next(const simd_array_t in_01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
+		JSONIFIER_INLINE void next(const simd_array_t in_01) noexcept {
 			static constexpr uint8x16_t bitMask{ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
+			const jsonifier_simd_int_t bsRegister	 = simd::gatherValue<simd_type>('\\');
+			const jsonifier_simd_int_t quoteRegister = simd::gatherValue<simd_type>('"');
 			const uint8x16_t d0			  = in_01.template get<0>();
 			const uint8x16_t d1			  = in_01.template get<1>();
 			const uint8x16_t d2			  = in_01.template get<2>();
@@ -200,8 +224,9 @@ namespace jsonifier::internal::simd {
 			return quotes ? finishNextInString() : finishNextNoInString();
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
-			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01) noexcept {
+			const simd_register<registerBytes>::type bsRegister = simd::gatherValue<simd_register<registerBytes>::type>('\\');
+			const simd_register<registerBytes>::type quoteRegister = simd::gatherValue<simd_register<registerBytes>::type>('"');
 			if constexpr (registerCount == simdRegistersPerBlock) {
 				next(in_01, bsRegister, quoteRegister);
 			} else {
@@ -253,28 +278,6 @@ namespace jsonifier::internal::simd {
 			return static_cast<uint64_t>(popCount(bits));
 		}
 	};
-
-	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateWhitespaceArrayNeon() {
-		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xFFu, 0xFFu, 0x00u, 0x00u, 0xFFu, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
-			returnValues[x] = values[x % 16];
-		}
-		return returnValues;
-	};
-
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArrayNeon<size>() };
-
-	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateOpArrayNeon() {
-		constexpr const uint8_t values[]{ 0xFFu, 0x00u, ',', ':', 0x00u, '[', ']', '{', '}', 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
-			returnValues[x] = values[x % 16];
-		}
-		return returnValues;
-	};
-
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArrayNeon<size>() };
 
 #endif
 

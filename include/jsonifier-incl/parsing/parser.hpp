@@ -36,39 +36,21 @@ namespace jsonifier::internal {
 
 	template<typename value_type, typename context_type, parse_options options> struct parse_impl;
 
-#if JSONIFIER_COMPILER_MSVC
-	template<parse_options options> struct parse {
-		template<typename value_type, typename context_type>
-		inline static bool impl(value_type&& value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
-			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
-				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, endIter, context);
-			} else {
-				return implOutline(value, iter, endIter, context);
-			}
-		}
-
-		template<typename value_type, typename context_type>
-		JSONIFIER_NOINLINE static bool implOutline(value_type& __restrict value, auto&& __restrict iter, auto endIter, context_type& __restrict context) noexcept {
-			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, endIter, context);
-		}
-	};
-#else
 	template<parse_options options> struct parse {
 		template<typename value_type, typename iterator_type, typename context_type>
-		inline static iterator_type impl(value_type&& value, iterator_type iter, iterator_type end, uint64_t depth, context_type& context) noexcept {
+		inline static iterator_type impl(value_type&& value, iterator_type iter, uint64_t depth, context_type& context) noexcept {
 			if constexpr (inlinableOpType<remove_cvref_t<value_type>, maxParseInlineMemberCount>()) {
-				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, end, depth, context);
+				return parse_impl<remove_cvref_t<value_type>, context_type, options>::impl(value, iter, depth, context);
 			} else {
-				return implOutline(value, iter, end, depth, context);
+				return implOutline(value, iter, depth, context);
 			}
 		}
 
 		template<typename value_type, typename iterator_type, typename context_type>
-		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, iterator_type end, uint64_t depth, context_type& context) noexcept {
-			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, end, depth, context);
+		JSONIFIER_NOINLINE static iterator_type implOutline(value_type& value, iterator_type iter, uint64_t depth, context_type& context) noexcept {
+			return parse_impl<remove_cvref_t<value_type>, context_type, options>::implOutline(value, iter, depth, context);
 		}
 	};
-#endif
 
 	template<parse_options options, typename value_type, typename iterator_type> struct string_scan_context {
 		using scan_result = typename string_scanner<options>::scan_result;
@@ -304,12 +286,12 @@ namespace jsonifier::internal {
 			if constexpr (parseOpts.partialRead) {
 				derivedRef.section.template reset<parseOpts.minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));
 				parse_context<parseOpts, structural_index_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors,
-					rootIter, endIter };
-				return runParse<parseOpts>(object, derivedRef.section.begin(), derivedRef.section.end(), context);
+					rootIter, endIter, derivedRef.section.end() };
+				return runParse<parseOpts>(object, derivedRef.section.begin(), context);
 			} else {
 				parse_context<parseOpts, read_buffer_ptr, remove_reference_t<decltype(derivedRef.stringBuffer)>> context{ &derivedRef.stringBuffer, &derivedRef.errors, rootIter,
 					endIter };
-				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), static_cast<read_buffer_ptr>(endIter), context);
+				return runParse<parseOpts>(object, static_cast<read_buffer_ptr>(rootIter), context);
 			}
 		}
 
@@ -323,41 +305,22 @@ namespace jsonifier::internal {
 		inline ~parser() noexcept			   = default;
 		inline parser() noexcept			   = default;
 
-#if JSONIFIER_COMPILER_MSVC
 		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
-		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, iterator_type end, context_type& context) noexcept {
+		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, context_type& context) noexcept {
 			using cursor = json_cursor<parseOpts, iterator_type>;
-			if (!cursor::anyInput(iter, end, context)) [[unlikely]] {
+			if (!cursor::anyInput(iter, context)) [[unlikely]] {
 				return false;
 			}
 			if constexpr (!parseOpts.minified && !structural_context<context_type>) {
-				cursor::collectIndentSize(iter, end, context);
+				cursor::collectIndentSize(iter, context);
 			}
-			if (iterator_type iterNew{ iter }; parse<parseOpts>::impl(object, iterNew, end, context)) [[likely]] {
-				static_cast<void>(cursor::checkIfDone(iterNew, end, context));
+			if (const iterator_type iterNew = parse<parseOpts>::impl(object, iter, 0, context); iterNew) [[likely]] {
+				static_cast<void>(cursor::checkIfDone(iterNew, context));
 			} else {
 				static_cast<void>(cursor::template reject<parse_statuses::unfinished_input>(iter, context));
 			}
 			return derivedRef.errors.size() == 0;
 		}
-#else
-		template<parse_options parseOpts, typename value_type, typename iterator_type, typename context_type>
-		JSONIFIER_INLINE bool runParse(value_type& object, iterator_type iter, iterator_type end, context_type& context) noexcept {
-			using cursor = json_cursor<parseOpts, iterator_type>;
-			if (!cursor::anyInput(iter, end, context)) [[unlikely]] {
-				return false;
-			}
-			if constexpr (!parseOpts.minified && !structural_context<context_type>) {
-				cursor::collectIndentSize(iter, end, context);
-			}
-			if (const iterator_type iterNew = parse<parseOpts>::impl(object, iter, end, 0, context); iterNew) [[likely]] {
-				static_cast<void>(cursor::checkIfDone(iterNew, end, context));
-			} else {
-				static_cast<void>(cursor::template reject<parse_statuses::unfinished_input>(iter, context));
-			}
-			return derivedRef.errors.size() == 0;
-		}
-#endif
 
 		template<bool minified> JSONIFIER_INLINE structural_index_ptr indexStructurals(auto* rootIter, const auto* endIter) noexcept {
 			derivedRef.podSection.template reset<minified>(rootIter, static_cast<uint64_t>(endIter - rootIter));

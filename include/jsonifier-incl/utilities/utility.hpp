@@ -304,23 +304,40 @@ namespace jsonifier::internal {
 		pow2MemcpyWrapper<chunk_bytes>(dst + byte_count - chunk_bytes, src + byte_count - chunk_bytes);
 	}
 
-	template<uint64_t bit_index> JSONIFIER_INLINE void copyBit(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count, uint64_t& __restrict offset) {
-		if ((byte_count >> bit_index) & 1ull) {
-			pow2MemcpyWrapper<1ull << bit_index>(dst + offset, src + offset);
-			offset += 1ull << bit_index;
-		}
-	}
-
-	JSONIFIER_INLINE static void copy_decomposed(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
+	JSONIFIER_INLINE static void copyDecomposed(std::byte* __restrict dst, const std::byte* __restrict src, uint64_t byte_count) {
 		uint64_t offset{};
-		copyBit<7>(dst, src, byte_count, offset);
-		copyBit<6>(dst, src, byte_count, offset);
-		copyBit<5>(dst, src, byte_count, offset);
-		copyBit<4>(dst, src, byte_count, offset);
-		copyBit<3>(dst, src, byte_count, offset);
-		copyBit<2>(dst, src, byte_count, offset);
-		copyBit<1>(dst, src, byte_count, offset);
-		copyBit<0>(dst, src, byte_count, offset);
+		if ((byte_count >> 7) & 1ull) {
+			pow2MemcpyWrapper<1ull << 7>(dst + offset, src + offset);
+			offset += 1ull << 7;
+		}
+		if ((byte_count >> 6) & 1ull) {
+			pow2MemcpyWrapper<1ull << 6>(dst + offset, src + offset);
+			offset += 1ull << 6;
+		}
+		if ((byte_count >> 5) & 1ull) {
+			pow2MemcpyWrapper<1ull << 5>(dst + offset, src + offset);
+			offset += 1ull << 5;
+		}
+		if ((byte_count >> 4) & 1ull) {
+			pow2MemcpyWrapper<1ull << 4>(dst + offset, src + offset);
+			offset += 1ull << 4;
+		}
+		if ((byte_count >> 3) & 1ull) {
+			pow2MemcpyWrapper<1ull << 3>(dst + offset, src + offset);
+			offset += 1ull << 3;
+		}
+		if ((byte_count >> 2) & 1ull) {
+			pow2MemcpyWrapper<1ull << 2>(dst + offset, src + offset);
+			offset += 1ull << 2;
+		}
+		if ((byte_count >> 1) & 1ull) {
+			pow2MemcpyWrapper<1ull << 1>(dst + offset, src + offset);
+			offset += 1ull << 1;
+		}
+		if ((byte_count >> 0) & 1ull) {
+			pow2MemcpyWrapper<1ull << 0>(dst + offset, src + offset);
+			offset += 1ull << 0;
+		}
 	}
 
 	template<uint64_t max_bytes> JSONIFIER_INLINE void jsonifierMemcpyUpTo(void* __restrict destination, const void* __restrict source, uint64_t byte_count) {
@@ -384,7 +401,7 @@ namespace jsonifier::internal {
 			}
 			case 8: {
 				if constexpr (max_bytes >= 128) {
-					copy_decomposed(dst, src, byte_count);
+					copyDecomposed(dst, src, byte_count);
 					return;
 				} else {
 					break;
