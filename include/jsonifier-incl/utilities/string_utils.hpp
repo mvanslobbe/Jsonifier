@@ -87,8 +87,8 @@ namespace jsonifier::internal {
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 	JSONIFIER_INLINE static uint32_t hexToU32NoCheck(read_buffer_ptr string1) noexcept {
-		return digit_tables<>::digitToVal32[630ull + static_cast<uint64_t>(string1[0])] | digit_tables<>::digitToVal32[420ull + static_cast<uint64_t>(string1[1])] |
-			digit_tables<>::digitToVal32[210ull + static_cast<uint64_t>(string1[2])] | digit_tables<>::digitToVal32[0ull + static_cast<uint64_t>(string1[3])];
+		return digit_tables<>::digitToVal32[630ull + static_cast<uint8_t>(string1[0])] | digit_tables<>::digitToVal32[420ull + static_cast<uint8_t>(string1[1])] |
+			digit_tables<>::digitToVal32[210ull + static_cast<uint8_t>(string1[2])] | digit_tables<>::digitToVal32[0ull + static_cast<uint8_t>(string1[3])];
 	}
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
