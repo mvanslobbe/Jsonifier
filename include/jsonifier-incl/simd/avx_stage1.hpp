@@ -45,28 +45,6 @@ namespace jsonifier::internal::simd {
 		}
 	};
 
-	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateWhitespaceArray() noexcept {
-		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, '\t', '\n', 0x70u, 0x64u, '\r', 0x64u, 0x64u };
-		internal::array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
-			returnValues[x] = values[x % 16];
-		}
-		return returnValues;
-	};
-
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
-
-	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateOpArray() noexcept {
-		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, ':', '{', ',', '}', 0x00u, 0x00u };
-		internal::array<uint8_t, size> returnValues{};
-		for (uint64_t x = 0; x < size; ++x) {
-			returnValues[x] = values[x % 16];
-		}
-		return returnValues;
-	};
-
-	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArray<size>() };
-
 	struct cmp_eq_op {
 		JSONIFIER_INLINE static uint64_t impl(const simd_array_t lhs, const jsonifier_simd_int_t rhsBroadcast) noexcept {
 			uint64_t result = simd::opCmpEq(lhs.get<0>(), rhsBroadcast);
@@ -120,9 +98,7 @@ namespace jsonifier::internal::simd {
 			return escaped;
 		}
 
-		JSONIFIER_INLINE void next(const simd_array_t in_01) noexcept {
-			const jsonifier_simd_int_t bsRegister	 = simd::gatherValue<jsonifier_simd_int_t>('\\');
-			const jsonifier_simd_int_t quoteRegister = simd::gatherValue<jsonifier_simd_int_t>('"');
+		JSONIFIER_INLINE void next(const simd_array_t in_01, const jsonifier_simd_int_t bsRegister, const jsonifier_simd_int_t quoteRegister) noexcept {
 			const uint64_t escaped = nextEscapeAndTerminalCode(simd::cmp_eq_op::impl(in_01, bsRegister));
 			const uint64_t quotes  = (simd::cmp_eq_op::impl(in_01, quoteRegister) & ~escaped);
 			rope_block::escaped	   = escaped;
@@ -138,7 +114,8 @@ namespace jsonifier::internal::simd {
 			return evenSeriesCodesAndOddBits ^ oddBits;
 		}
 
-		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01) noexcept;
+		template<uint64_t registerBytes, uint64_t registerCount> JSONIFIER_INLINE void nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
+			const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept;
 
 		JSONIFIER_INLINE void finishNext() noexcept {
 			const uint64_t inString = simd::prefix_xor_op::impl(rope_block::quotes) ^ prevInString;
@@ -162,8 +139,7 @@ namespace jsonifier::internal::simd {
 	};
 
 	struct ws_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
-			const jsonifier_simd_int_t whitespaceTableLocal = simd::gatherValues<jsonifier_simd_int_t>(simd::whitespaceArray<simdBytesPerRegister>.data());
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t whitespaceTableLocal) noexcept {
 			simd_array_t wsShuffle;
 			wsShuffle.set<0>(simd::opShuffle(whitespaceTableLocal, in_01.get<0>()));
 			if constexpr (simdRegistersPerBlock > 1) {
@@ -178,9 +154,7 @@ namespace jsonifier::internal::simd {
 	};
 
 	struct op_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
-			const jsonifier_simd_int_t opTable	 = simd::gatherValues<jsonifier_simd_int_t>(simd::opArray<simdBytesPerRegister>.data());
-			const jsonifier_simd_int_t spaceMask = simd::gatherValue<jsonifier_simd_int_t>(static_cast<char>(0x20));
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t spaceMask) noexcept {
 			simd_array_t orLhs;
 			simd_array_t shuffleRhs;
 
@@ -235,8 +209,7 @@ namespace jsonifier::internal::simd {
 		using simd_type		  = typename simd_register<registerBytes>::type;
 		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01) noexcept {
-			const simd_type whitespaceTableLocal = simd::gatherValues<simd_type>(simd::whitespaceArray<simdBytesPerRegister>.data());
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const simd_type whitespaceTableLocal) noexcept {
 			simd_array_type wsShuffle;
 			wsShuffle.template set<0>(simd::opShuffle(whitespaceTableLocal, in_01.template get<0>()));
 			if constexpr (registerCount > 1) {
@@ -254,9 +227,7 @@ namespace jsonifier::internal::simd {
 		using simd_type		  = typename simd_register<registerBytes>::type;
 		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01) noexcept {
-			const simd_type opTable	  = simd::gatherValues<simd_type>(simd::opArray<simdBytesPerRegister>.data());
-			const simd_type spaceMask = simd::gatherValue<simd_type>(static_cast<char>(0x20));
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const simd_type opTable, const simd_type spaceMask) noexcept {
 			simd_array_type orLhs;
 			simd_array_type shuffleRhs;
 
@@ -277,14 +248,12 @@ namespace jsonifier::internal::simd {
 	};
 
 	template<typename rope_block> template<uint64_t registerBytes, uint64_t registerCount>
-	JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01) noexcept {
-		using simd_type				  = typename simd_register<registerBytes>::type;
-		const simd_type bsRegister	  = simd::gatherValue<simd_type>('\\');
-		const simd_type quoteRegister = simd::gatherValue<simd_type>('"');
-		const uint64_t escaped		  = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, bsRegister));
-		const uint64_t quotes		  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, quoteRegister) & ~escaped);
-		rope_block::escaped			  = escaped;
-		rope_block::quotes			  = quotes;
+	JSONIFIER_INLINE void rope_detector<rope_block>::nextScalar(const pod_simd_array_t<registerCount, registerBytes> in_01,
+		const typename simd_register<registerBytes>::type bsRegister, const typename simd_register<registerBytes>::type quoteRegister) noexcept {
+		const uint64_t escaped = nextEscapeAndTerminalCode(pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, bsRegister));
+		const uint64_t quotes  = (pod_cmp_eq_op<registerBytes, registerCount>::impl(in_01, quoteRegister) & ~escaped);
+		rope_block::escaped	   = escaped;
+		rope_block::quotes	   = quotes;
 		return quotes ? finishNext() : finishNextNoInString();
 	}
 
@@ -301,6 +270,28 @@ namespace jsonifier::internal::simd {
 			return blsr(bits);
 		}
 	};
+
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateWhitespaceArray() noexcept {
+		constexpr const uint8_t values[]{ 0x20u, 0x64u, 0x64u, 0x64u, 0x11u, 0x64u, 0x71u, 0x02u, 0x64u, '\t', '\n', 0x70u, 0x64u, '\r', 0x64u, 0x64u };
+		internal::array<uint8_t, size> returnValues{};
+		for (uint64_t x = 0; x < size; ++x) {
+			returnValues[x] = values[x % 16];
+		}
+		return returnValues;
+	};
+
+	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> whitespaceArray{ generateWhitespaceArray<size>() };
+
+	template<uint64_t size> inline static constexpr internal::array<uint8_t, size> generateOpArray() noexcept {
+		constexpr const uint8_t values[]{ 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, ':', '{', ',', '}', 0x00u, 0x00u };
+		internal::array<uint8_t, size> returnValues{};
+		for (uint64_t x = 0; x < size; ++x) {
+			returnValues[x] = values[x % 16];
+		}
+		return returnValues;
+	};
+
+	template<uint64_t size> alignas(64) static constexpr internal::array<uint8_t, size> opArray{ generateOpArray<size>() };
 
 #endif
 

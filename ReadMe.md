@@ -47,7 +47,7 @@ Jsonifier automatically detects and optimizes for your CPU architecture:
 - **ARM-NEON** — SIMD instructions for ARM processors
 - **ARM-SVE2** — scalable vector extensions for ARM processors ⚠️ **experimental** — the SVE2 backend is new and still under active development; a handful of parsing cases are not yet handled correctly. NEON remains the recommended path for production ARM builds until SVE2 correctness is fully verified. Feedback and bug reports on SVE2-specific behavior are very welcome.
 
-Manual configuration is also available via `JSONIFIER_CPU_FLAGS` in CMake, and cross-compilation is supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` to skip native feature detection.
+Manual configuration and cross-compilation are supported by pre-defining `JSONIFIER_CPU_INSTRUCTIONS` (plus `JSONIFIER_SVE2_VECTOR_BITS` for SVE2 targets) at CMake configure time to skip native feature detection.
 
 ---
 
@@ -69,8 +69,8 @@ Key lookups during parsing use compile-time-generated hash maps specialized for 
 Full RFC8259 compliance. All types (objects, arrays, strings, numbers, booleans, null), full Unicode with proper surrogate-pair handling, all escape sequences, and `jsonifier::raw_json_data` for preserving arbitrary sub-trees verbatim.
 
 ### Flexible Parsing Modes
-- **Ordered parsing** (default) — fastest, assumes JSON keys arrive in declaration order
-- **Known-order parsing** — declaration order enforced, with a fused literal-match fast path for minified input
+- **Default parsing** — single pass over the raw buffer, compile-time hash-map key dispatch, keys accepted in any order
+- **Known-order parsing** — tries the declaration-order key first, then a self-tuning per-position memo, then the hash map; adds a fused literal-match fast path for minified input
 - **Partial reading** — parse unordered or partial JSON structures
 - **Arbitrary data** — work with unknown JSON via `raw_json_data`
 
@@ -232,7 +232,7 @@ Note the `makeJsonEntity<&value_type::schema_version, "schema-version">()` — J
 
 Warning: Include only <jsonifier>. Direct inclusion of internal headers may cause unrelated code in the including translation unit to become uncompilable.
 
-The `jsonifier_core<>` type is now templated on an initial scratch-buffer size in bytes (default 1MB) — e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents.
+The `jsonifier_core<>` type is templated on an initial scratch-buffer size in bytes (default 1MB) — e.g. `jsonifier::jsonifier_core<4 * 1024 * 1024> parser;` for workloads that consistently deal with larger documents.
 
 ---
 
