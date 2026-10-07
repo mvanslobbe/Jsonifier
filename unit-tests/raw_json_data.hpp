@@ -97,7 +97,6 @@ namespace raw_json_data_tests {
 			parser.parseJson(data, std::string{ "-9223372036854775808" });
 			return data.getInt();
 		});
-		/*
 		static constexpr rt_ut::string_literal getDoubleRoundTripName{ "raw_json_data_get_double_round_trip" };
 		rt_ut::unit_test<getDoubleRoundTripName, true>::assert_eq(true, [&] {
 			jsonifier::raw_json_data data{};
@@ -129,7 +128,27 @@ namespace raw_json_data_tests {
 			auto val = data.getDouble();
 			return val > 0.4999 && val < 0.5001;
 		});
-		*/
+
+		static constexpr rt_ut::string_literal getDoubleNegativeFractionName{ "raw_json_data_get_double_negative_fraction" };
+		rt_ut::unit_test<getDoubleNegativeFractionName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "-0.1" });
+			return data.getNumber().getType() == jsonifier::json_number::number_types::double64 && std::bit_cast<uint64_t>(data.getDouble()) == std::bit_cast<uint64_t>(-0.1);
+		});
+
+		static constexpr rt_ut::string_literal getDoubleNegativeExponentName{ "raw_json_data_get_double_negative_exponent" };
+		rt_ut::unit_test<getDoubleNegativeExponentName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "-1e2" });
+			return data.getNumber().getType() == jsonifier::json_number::number_types::double64 && std::bit_cast<uint64_t>(data.getDouble()) == std::bit_cast<uint64_t>(-100.0);
+		});
+
+		static constexpr rt_ut::string_literal getDoubleNegativeInArrayName{ "raw_json_data_get_double_negative_in_array" };
+		rt_ut::unit_test<getDoubleNegativeInArrayName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "[-7.9431,-12]" });
+			return std::bit_cast<uint64_t>(data[0ULL].getDouble()) == std::bit_cast<uint64_t>(-7.9431) && data[1ULL].getInt() == -12;
+		});
 		static constexpr rt_ut::string_literal arrayIndexAccessName{ "raw_json_data_array_index_access" };
 		rt_ut::unit_test<arrayIndexAccessName, true>::assert_eq(static_cast<uint64_t>(3), [&] {
 			jsonifier::raw_json_data data{};
