@@ -838,17 +838,18 @@ namespace jsonifier::internal {
 		return !static_cast<bool>(sourceVal ^ stringInt);
 	}
 
-	JSONIFIER_INLINE static bool validateBool(read_buffer_ptr context) noexcept {
-		if (compareStringAsInt<"true">(context)) {
+	JSONIFIER_INLINE static bool validateBool(read_buffer_ptr context, read_buffer_ptr end) noexcept {
+		const auto remaining = end - context;
+		if (remaining >= 4 && compareStringAsInt<"true">(context)) {
 			return true;
-		} else if (compareStringAsInt<"fals">(context) && context[4] == 'e') {
+		} else if (remaining >= 5 && compareStringAsInt<"fals">(context) && context[4] == 'e') {
 			return true;
 		}
 		return false;
 	}
 
-	JSONIFIER_INLINE static bool validateNull(read_buffer_ptr context) noexcept {
-		if (compareStringAsInt<"null">(context)) [[likely]] {
+	JSONIFIER_INLINE static bool validateNull(read_buffer_ptr context, read_buffer_ptr end) noexcept {
+		if (end - context >= 4 && compareStringAsInt<"null">(context)) [[likely]] {
 			return true;
 		} else {
 			return false;
