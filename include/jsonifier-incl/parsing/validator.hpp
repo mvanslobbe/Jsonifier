@@ -146,80 +146,101 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
+		// The structural index holds only the first byte of each scalar, so the end of a scalar is not indexed. A scalar ends
+		// either at the next structural index or at the end of the input, and only whitespace may come between the two.
+		template<typename context_type> JSONIFIER_INLINE static read_buffer_ptr scalarBound(structural_index_ptr nextIter, context_type& context) noexcept {
+			return cursor::notAtEnd(nextIter, context) ? cursor::valuePtr(nextIter, context) : context.stringEnd;
+		}
+
+		JSONIFIER_INLINE static bool onlyWhitespace(read_buffer_ptr ptr, read_buffer_ptr bound) noexcept {
+			for (; ptr < bound; ++ptr) {
+				if (*ptr != ' ' && *ptr != '\t' && *ptr != '\n' && *ptr != '\r') {
+					return false;
+				}
+			}
+			return true;
+		}
+
 		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateString(structural_index_ptr iter, context_type& context) noexcept {
 			if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 				return nullptr;
 			}
-			auto newPtr = cursor::valuePtr(iter, context);
+			const auto contentPtr = cursor::valuePtr(iter, context) + 1;
 			++iter;
-			auto endPtr		   = cursor::notAtEnd(iter, context) ? cursor::valuePtr(iter, context) : (newPtr + (context.endIter - iter));
+			const auto bound   = scalarBound(iter, context);
 			using scanner_type = string_scanner<optionsVal>;
 			auto& scratch	   = context.getStringBuffer();
-			const auto needed  = static_cast<uint64_t>(endPtr - newPtr) + simdBytesPerStep;
+			const auto needed  = static_cast<uint64_t>(bound - contentPtr) + simdBytesPerStep;
 			if (scratch.size() < needed) [[unlikely]] {
 				scratch.resize(needed);
 			}
-			return scanner_type::impl(newPtr, endPtr, scratch.data()).outLength != std::numeric_limits<uint64_t>::max() ? iter : nullptr;
+			const auto result = scanner_type::impl(contentPtr, bound, scratch.data());
+			if (result.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
+				return nullptr;
+			}
+			// rawLength is the offset of the closing quote.
+			return onlyWhitespace(contentPtr + result.rawLength + 1, bound) ? iter : nullptr;
 		}
 
+		// RFC 8259: [ "-" ] ( "0" / digit1-9 *DIGIT ) [ "." 1*DIGIT ] [ ( "e" / "E" ) [ "-" / "+" ] 1*DIGIT ]
 		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, context_type& context) noexcept {
 			auto newPtr = cursor::valuePtr(iter, context);
 			++iter;
-			if (cursor::notAtEnd(iter, context) && (*newPtr != 0x30u || !numberTable[static_cast<uint8_t>(*(newPtr + 1))])) [[likely]] {
-				consumeSign(newPtr);
-				consumeDigits(newPtr);
-				if (consumeChar(0x2Eu, newPtr)) {
-					if (!cursor::notAtEnd(iter, context) || !consumeDigits(newPtr)) {
-						return nullptr;
-					}
+			const auto bound = scalarBound(iter, context);
+			consumeChar('-', newPtr, bound);
+			if (consumeChar('0', newPtr, bound)) {
+				if (newPtr < bound && is_digit(static_cast<uint8_t>(*newPtr))) [[unlikely]] {
+					return nullptr;
 				}
-				if (consumeChar(0x65u, newPtr) || consumeChar(0x45u, newPtr)) {
-					consumeSign(newPtr);
-				}
-				return iter;
-			} else {
+			} else if (!consumeDigits(newPtr, bound)) [[unlikely]] {
 				return nullptr;
 			}
-		}
-
-		JSONIFIER_INLINE static bool consumeDigits(read_buffer_ptr& newerPtr, uint64_t minCount = 1) {
-			uint64_t count = 0;
-			while (is_digit(static_cast<uint8_t>(*newerPtr))) {
-				++newerPtr;
-				++count;
+			if (consumeChar('.', newPtr, bound) && !consumeDigits(newPtr, bound)) [[unlikely]] {
+				return nullptr;
 			}
-			return count >= minCount;
+			if (consumeChar('e', newPtr, bound) || consumeChar('E', newPtr, bound)) {
+				if (!consumeChar('-', newPtr, bound)) {
+					consumeChar('+', newPtr, bound);
+				}
+				if (!consumeDigits(newPtr, bound)) [[unlikely]] {
+					return nullptr;
+				}
+			}
+			return onlyWhitespace(newPtr, bound) ? iter : nullptr;
 		}
 
-		JSONIFIER_INLINE static bool consumeChar(char expected, read_buffer_ptr& newerPtr) {
-			if (*newerPtr == expected) {
+		JSONIFIER_INLINE static bool consumeDigits(read_buffer_ptr& newerPtr, read_buffer_ptr bound) noexcept {
+			const auto start = newerPtr;
+			while (newerPtr < bound && is_digit(static_cast<uint8_t>(*newerPtr))) {
+				++newerPtr;
+			}
+			return newerPtr != start;
+		}
+
+		JSONIFIER_INLINE static bool consumeChar(char expected, read_buffer_ptr& newerPtr, read_buffer_ptr bound) noexcept {
+			if (newerPtr < bound && *newerPtr == expected) {
 				++newerPtr;
 				return true;
 			}
 			return false;
 		}
 
-		JSONIFIER_INLINE static void consumeSign(read_buffer_ptr& newerPtr) {
-			if (*newerPtr == '-' || *newerPtr == '+') {
-				++newerPtr;
-			}
-			return;
-		}
-
 		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
-				return ++iter;
-			} else {
+			const auto newPtr = cursor::valuePtr(iter, context);
+			if (!jsonifier::internal::validateBool(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
+			++iter;
+			return onlyWhitespace(newPtr + (*newPtr == 't' ? 4 : 5), scalarBound(iter, context)) ? iter : nullptr;
 		}
 
 		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
-				return ++iter;
-			} else {
+			const auto newPtr = cursor::valuePtr(iter, context);
+			if (!jsonifier::internal::validateNull(newPtr, context.stringEnd)) [[unlikely]] {
 				return nullptr;
 			}
+			++iter;
+			return onlyWhitespace(newPtr + 4, scalarBound(iter, context)) ? iter : nullptr;
 		}
 	};
 
