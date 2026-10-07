@@ -22,6 +22,25 @@ namespace raw_json_data_tests {
 			return static_cast<uint8_t>(data.getType());
 		});
 
+		static constexpr rt_ut::string_literal getIntRangeName{ "raw_json_data_get_int_saturates_out_of_range_doubles" };
+		rt_ut::unit_test<getIntRangeName, true>::assert_eq(true, [&] {
+			// Doubles outside the int64_t range clamp to its limits; doubles inside it truncate toward zero.
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, std::string{ "[1e300,-1e300,9.3e18,-9.3e18,9223372036854775807.0,-9223372036854775808.0,2.5,-2.5]" })) {
+				return false;
+			}
+			const auto& values			 = data.getArray();
+			static constexpr int64_t max = std::numeric_limits<int64_t>::max();
+			static constexpr int64_t min = std::numeric_limits<int64_t>::min();
+			static constexpr int64_t expected[]{ max, min, max, min, max, min, 2, -2 };
+			for (uint64_t x = 0; x < values.size(); ++x) {
+				if (values[x].getNumber().getInt() != expected[x]) {
+					return false;
+				}
+			}
+			return values.size() == 8;
+		});
+
 		static constexpr rt_ut::string_literal typeArrayName{ "raw_json_data_get_type_array" };
 		rt_ut::unit_test<typeArrayName, true>::assert_eq(static_cast<uint8_t>(jsonifier::json_type::array), [&] {
 			jsonifier::raw_json_data data{};

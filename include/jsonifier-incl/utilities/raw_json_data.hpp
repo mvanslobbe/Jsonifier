@@ -99,7 +99,12 @@ namespace jsonifier {
 					return int_val;
 				}
 				case static_cast<uint64_t>(number_types::double64): {
-					return static_cast<int64_t>(double_val);
+					// Converting a double outside the int64_t range is undefined behavior, so saturate instead.
+					// -2^63 is exactly representable; 2^63 is the first double above INT64_MAX.
+					if (double_val >= -9223372036854775808.0 && double_val < 9223372036854775808.0) [[likely]] {
+						return static_cast<int64_t>(double_val);
+					}
+					return double_val > 0.0 ? std::numeric_limits<int64_t>::max() : std::numeric_limits<int64_t>::min();
 				}
 				default: {
 					return 0;
