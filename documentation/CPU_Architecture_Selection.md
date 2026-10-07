@@ -4,9 +4,9 @@ Jsonifier is a SIMD-heavy library, and getting the right SIMD backend selected f
 
 ## How Auto-Detection Works
 
-At configure time, Jsonifier's CMake build script builds and runs a small standalone helper program (`FeatureCheck/main.cpp`) on the host machine. The program calls `cpuid` (on x64) or queries NEON, SVE2, and PMULL/crypto (carry-less multiply) support via `getauxval`/`sysctlbyname` (on ARM64), then prints a bitfield summarizing which instruction set extensions are available.
+At configure time, Jsonifier's CMake build script builds and runs a small standalone helper program (`cmake/main.cpp`) on the host machine. The program calls `cpuid` (on x64) or queries NEON, SVE2, and PMULL/crypto (carry-less multiply) support via `getauxval`/`sysctlbyname` (on ARM64), then prints a bitfield summarizing which instruction set extensions are available.
 
-CMake captures the printed value, translates it into the appropriate compiler flags (`/arch:AVX2` on MSVC, `-mavx2 -mbmi -mpopcnt` and friends on GCC/Clang), and writes the final bitfield into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` as `#define JSONIFIER_CPU_INSTRUCTIONS <value>`.
+CMake captures the printed value, translates it into the appropriate compiler flags (`/arch:AVX2` on MSVC, `-mavx2 -mbmi -mpopcnt` and friends on GCC/Clang), and writes the final bitfield into `include/jsonifier-incl/simd/jsonifier_cpu_instructions.hpp` as `#define JSONIFIER_CPU_INSTRUCTIONS <value>`, alongside `#define JSONIFIER_SVE2_VECTOR_BITS <value>`. The detected alignment (64 for AVX-512, 32 for AVX2, the SVE vector length in bytes for SVE2, otherwise 16) is written into the generated `jsonifier_cpu_properties.hpp`.
 
 At compile time, Jsonifier's SIMD backend and bit-manipulation helpers select the fastest available implementation via `if constexpr` on the `JSONIFIER_CPU_INSTRUCTIONS` value. There is no runtime dispatch overhead — the correct code path is baked into the binary.
 
@@ -53,7 +53,9 @@ cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS="1|2|4|64"
 cmake -B build -DJSONIFIER_CPU_INSTRUCTIONS=71
 ```
 
-Both produce identical results. The pipe form is self-documenting — pass it into your CI or build scripts and future-you will thank present-you.
+Both produce identical results. When targeting SVE2, also pass `-DJSONIFIER_SVE2_VECTOR_BITS=<bits>` with the target's SVE vector length — SVE2 is only enabled when that length is known, since the backend uses fixed-length SVE types (`-msve-vector-bits`). When cross-compiling without `JSONIFIER_CPU_INSTRUCTIONS` defined, configure warns and falls back to the scalar build (`0`).
+
+The pipe form is self-documenting — pass it into your CI or build scripts and future-you will thank present-you.
 
 Common override values:
 
@@ -111,9 +113,11 @@ You'll see something like:
 
 ```cpp
 #define JSONIFIER_CPU_INSTRUCTIONS 71
+
+#define JSONIFIER_SVE2_VECTOR_BITS 128
 ```
 
-(`71` = LZCNT + POPCNT + BMI + AVX2, i.e. `1|2|4|64` — a typical AVX2-tier x64 machine.)
+(`71` = LZCNT + POPCNT + BMI + AVX2, i.e. `1|2|4|64` — a typical AVX2-tier x64 machine under GCC/Clang. The same machine under MSVC with PCLMULQDQ reports `111` = `1|2|4|8|32|64`, because of the MSVC AVX cascade described above. `JSONIFIER_SVE2_VECTOR_BITS` is ignored unless the SVE2 bit is set.)
 
 You can also verify the compiler flags Jsonifier is passing by looking at the CMake configure output — the detection script prints each `Instruction Set Found: <name>` line as it walks the bit table.
 
@@ -127,7 +131,7 @@ For internal code paths (and for anyone extending Jsonifier), the header exposes
 #endif
 ```
 
-`JSONIFIER_CHECK_FOR_INSTRUCTION` is a bitwise AND against a specific feature bit.
+`JSONIFIER_CHECK_FOR_INSTRUCTION` is a bitwise AND against a specific feature bit. The header also `#error`s if NEON and SVE2 are both set, or if SVE2 is set while `JSONIFIER_SVE2_VECTOR_BITS` is `0`.
 
 Convenience masks for common groups:
 

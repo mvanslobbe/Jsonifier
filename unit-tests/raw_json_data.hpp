@@ -306,6 +306,50 @@ namespace raw_json_data_tests {
 			return data["a"]["b"]["c"].getString();
 		});
 
+		static constexpr rt_ut::string_literal serializeMixedArrayName{ "raw_json_data_serialize_mixed_array" };
+		rt_ut::unit_test<serializeMixedArrayName, true>::assert_eq(std::string{ R"([1,-2,1.5,"s",true,false,null,[],{}])" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"([1, -2, 1.5, "s", true, false, null, [], {}])" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeNestedObjectName{ "raw_json_data_serialize_nested_object" };
+		rt_ut::unit_test<serializeNestedObjectName, true>::assert_eq(std::string{ R"({"a":[1,2]})" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"({"a":[1,2]})" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeRootScalarName{ "raw_json_data_serialize_root_scalar" };
+		rt_ut::unit_test<serializeRootScalarName, true>::assert_eq(std::string{ "42" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ "42" });
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializeDefaultName{ "raw_json_data_serialize_default_constructed_is_null" };
+		rt_ut::unit_test<serializeDefaultName, true>::assert_eq(std::string{ "null" }, [&] {
+			jsonifier::raw_json_data data{};
+			std::string out{};
+			parser.serializeJson(data, out);
+			return out;
+		});
+
+		static constexpr rt_ut::string_literal serializePrettifiedName{ "raw_json_data_serialize_prettified" };
+		rt_ut::unit_test<serializePrettifiedName, true>::assert_eq(std::string{ "{\n   \"k\": [\n      3,\n      \"v\"\n   ]\n}" }, [&] {
+			jsonifier::raw_json_data data{};
+			parser.parseJson(data, std::string{ R"({"k":[3,"v"]})" });
+			std::string out{};
+			parser.serializeJson<jsonifier::serialize_options{ .prettify = true }>(data, out);
+			return out;
+		});
+
 		std::cout << "raw_json_data validation tests complete." << std::endl;
 	}
 

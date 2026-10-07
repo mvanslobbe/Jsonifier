@@ -349,12 +349,28 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type, serialize_options options> struct get_size_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t&) noexcept {
-			uint64_t requiredSize{};
-			const auto rawJson = value.rawJson();
-			const auto size	   = rawJson.size();
-			requiredSize += size;
-			return requiredSize;
+		template<typename value_type_new> JSONIFIER_INLINE static uint64_t impl(value_type_new& value, uint64_t& indent) noexcept {
+			switch (static_cast<uint64_t>(value.getType())) {
+				case static_cast<uint64_t>(json_type::object): {
+					return get_size<options>::impl(value.getObject(), indent);
+				}
+				case static_cast<uint64_t>(json_type::array): {
+					return get_size<options>::impl(value.getArray(), indent);
+				}
+				case static_cast<uint64_t>(json_type::string): {
+					return get_size<options>::impl(value.getString(), indent);
+				}
+				case static_cast<uint64_t>(json_type::number): {
+					return get_size_impl<double, options>::staticSize;
+				}
+				case static_cast<uint64_t>(json_type::boolean): {
+					return get_size_impl<bool, options>::staticSize;
+				}
+				default: {
+					alignas(64) static constexpr char_blitter<"null"> nullV{};
+					return nullV.lengthToAdvance;
+				}
+			}
 		}
 	};
 
@@ -867,11 +883,40 @@ namespace jsonifier::internal {
 	};
 
 	template<raw_json_t value_type, serialize_options options> struct serialize_impl<value_type, options> {
-		template<typename value_type_new> JSONIFIER_INLINE static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr __restrict bufferPtr, uint64_t) noexcept {
-			const auto rawJson = value.rawJson();
-			const auto size	   = rawJson.size();
-			jsonifierMemcpy(bufferPtr, rawJson.data(), size);
-			return bufferPtr + size;
+		template<typename value_type_new> JSONIFIER_INLINE static write_buffer_ptr impl(value_type_new&& value, write_buffer_ptr __restrict bufferPtr, uint64_t indent) noexcept {
+			switch (static_cast<uint64_t>(value.getType())) {
+				case static_cast<uint64_t>(json_type::object): {
+					return serialize<options>::impl(value.getObject(), bufferPtr, indent);
+				}
+				case static_cast<uint64_t>(json_type::array): {
+					return serialize<options>::impl(value.getArray(), bufferPtr, indent);
+				}
+				case static_cast<uint64_t>(json_type::string): {
+					return serialize<options>::impl(value.getString(), bufferPtr, indent);
+				}
+				case static_cast<uint64_t>(json_type::number): {
+					const auto& number = value.getNumber();
+					switch (static_cast<uint64_t>(number.getType())) {
+						case static_cast<uint64_t>(remove_cvref_t<decltype(number)>::number_types::int64): {
+							return serialize<options>::impl(number.getInt(), bufferPtr, indent);
+						}
+						case static_cast<uint64_t>(remove_cvref_t<decltype(number)>::number_types::double64): {
+							return serialize<options>::impl(number.getDouble(), bufferPtr, indent);
+						}
+						default: {
+							return serialize<options>::impl(number.getUint(), bufferPtr, indent);
+						}
+					}
+				}
+				case static_cast<uint64_t>(json_type::boolean): {
+					return serialize<options>::impl(value.getBool(), bufferPtr, indent);
+				}
+				default: {
+					alignas(64) static constexpr char_blitter<"null"> nullV{};
+					pow2MemcpyWrapper<nullV.lengthToCopy>(bufferPtr, &nullV.value);
+					return bufferPtr + nullV.lengthToAdvance;
+				}
+			}
 		}
 	};
 
