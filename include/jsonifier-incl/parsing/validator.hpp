@@ -170,7 +170,7 @@ namespace jsonifier::internal {
 		JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, context_type& context) noexcept {
 			auto newPtr = cursor::valuePtr(iter, context);
 			++iter;
-			if (cursor::notAtEnd(iter, context) && (*newPtr != 0x30u || !numberTable[static_cast<uint64_t>(*(newPtr + 1))])) [[likely]] {
+			if (cursor::notAtEnd(iter, context) && (*newPtr != 0x30u || !numberTable[static_cast<uint8_t>(*(newPtr + 1))])) [[likely]] {
 				consumeSign(newPtr);
 				consumeDigits(newPtr);
 				if (consumeChar(0x2Eu, newPtr)) {
@@ -213,7 +213,7 @@ namespace jsonifier::internal {
 
 		template<typename context_type>
 		JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context))) [[likely]] {
+			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
 				return ++iter;
 			} else {
 				return nullptr;
@@ -222,7 +222,7 @@ namespace jsonifier::internal {
 
 		template<typename context_type>
 		JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, context_type& context) noexcept {
-			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context))) [[likely]] {
+			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
 				return ++iter;
 			} else {
 				return nullptr;
