@@ -582,7 +582,6 @@ namespace unit_tests {
 			return !parser.validateJson(json);
 		};
 
-
 		static constexpr auto test_skip_string_escaped_quote = []() {
 			jsonifier::jsonifier_core<> parser{};
 			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
@@ -592,7 +591,7 @@ namespace unit_tests {
 			};
 			simple_struct value{};
 			// Unknown key whose string value is cut off after an escaped quote.
-			for (std::string_view json : { R"({"note":"\"})", R"({"note":"a\"b)" }) {
+			for (std::string_view json: { R"({"note":"\"})", R"({"note":"a\"b)" }) {
 				if (parseExact(json, value)) {
 					return false;
 				}
@@ -602,12 +601,13 @@ namespace unit_tests {
 				return false;
 			}
 			return value.id == 7;
+		};
 
 		static constexpr auto test_validate_truncated_literals = []() {
 			jsonifier::jsonifier_core<> parser{};
 			// Each input sits in a heap buffer of exactly its size plus the null
 			// terminator, so AddressSanitizer reports any read past the end.
-			for (std::string_view json : { "[t", "[f", "[n", "[tru", "[fals", "[nul", "t", "f", "n" }) {
+			for (std::string_view json: { "[t", "[f", "[n", "[tru", "[fals", "[nul", "t", "f", "n" }) {
 				std::vector<char> buffer(json.size() + 1);
 				std::copy(json.begin(), json.end(), buffer.begin());
 				if (parser.validateJson(std::string_view{ buffer.data(), json.size() })) {
