@@ -71,7 +71,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	struct ws_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t whitespaceTableLocal) noexcept {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
+			const jsonifier_simd_int_t whitespaceTableLocal = simd::gatherValues<jsonifier_simd_int_t>(simd::whitespaceArray<simdBytesPerRegister>.data());
 			const uint8x16_t d00	  = in_01.template get<0>();
 			const uint8x16_t d01	  = in_01.template get<1>();
 			const uint8x16_t d02	  = in_01.template get<2>();
@@ -90,7 +91,8 @@ namespace jsonifier::internal::simd {
 	};
 
 	struct op_collector {
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01, const jsonifier_simd_int_t opTable, const jsonifier_simd_int_t) noexcept {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_t in_01) noexcept {
+			const simd_type opTable	  = simd::gatherValues<simd_type>(simd::opArray<simdBytesPerRegister>.data());
 			const uint8x16_t d00	  = in_01.template get<0>();
 			const uint8x16_t d01	  = in_01.template get<1>();
 			const uint8x16_t d02	  = in_01.template get<2>();
@@ -148,7 +150,8 @@ namespace jsonifier::internal::simd {
 	template<uint64_t registerBytes, uint64_t registerCount> struct pod_ws_collector {
 		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const uint8x16_t whitespaceTableLocal) noexcept {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01) noexcept {
+			const uint8x16_t whitespaceTableLocal = simd::gatherValues<uint8x16_t>(simd::whitespaceArray<simdBytesPerRegister>.data());
 			if constexpr (registerCount == simdRegistersPerBlock) {
 				return ws_collector::impl(in_01, whitespaceTableLocal);
 			} else {
@@ -167,7 +170,9 @@ namespace jsonifier::internal::simd {
 	template<uint64_t registerBytes, uint64_t registerCount> struct scalar_op_collector {
 		using simd_array_type = pod_simd_array_t<registerCount, registerBytes>;
 
-		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01, const uint8x16_t opTable, const uint8x16_t spaceMask) noexcept {
+		JSONIFIER_INLINE static uint64_t impl(const simd_array_type in_01) noexcept {
+			const uint8x16_t opTable   = simd::gatherValues<uint8x16_t>(simd::opArray<simdBytesPerRegister>.data());
+			const uint8x16_t spaceMask = simd::gatherValue<uint8x16_t>(static_cast<char>(0x20));
 			if constexpr (registerCount == simdRegistersPerBlock) {
 				return op_collector::impl(in_01, opTable, spaceMask);
 			} else {
