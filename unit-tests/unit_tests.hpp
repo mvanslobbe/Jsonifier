@@ -647,6 +647,26 @@ namespace unit_tests {
 				return false;
 			}
 			return parsed.quote == 1 && parsed.backslash == 2 && parsed.both == 3;
+
+		static constexpr auto test_integer_truncated_fraction = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
+			auto parseExact = [&](std::string_view json, auto& value) {
+				std::vector<char> buffer(json.begin(), json.end());
+				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
+			};
+			// An integer whose fraction or exponent runs into the end of the input.
+			for (std::string_view json : { "[1.", "[1.5", "[1e", "[1e5", "[1.5e", "[1.5e1", "[1.5e+" }) {
+				std::vector<int64_t> signedValues{};
+				std::vector<uint64_t> unsignedValues{};
+				if (parseExact(json, signedValues) || parseExact(json, unsignedValues)) {
+					return false;
+				}
+			}
+			std::vector<int64_t> signedValues{};
+			std::vector<uint64_t> unsignedValues{};
+			return parseExact("[1.5e1,2e1]", signedValues) && parseExact("[1.5e1,2e1]", unsignedValues) && signedValues == std::vector<int64_t>{ 15, 20 } &&
+				unsignedValues == std::vector<uint64_t>{ 15, 20 };
 		};
 
 		static constexpr auto test_float_precision = []() {
@@ -1135,6 +1155,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Skip String Escaped Quote", true>::assert_eq(true, test_skip_string_escaped_quote);
 		rt_ut::unit_test<"Validate Truncated Literals", true>::assert_eq(true, test_validate_truncated_literals);
 		rt_ut::unit_test<"Escaped Member Keys", true>::assert_eq(true, test_escaped_member_keys);
+		rt_ut::unit_test<"Integer Truncated Fraction", true>::assert_eq(true, test_integer_truncated_fraction);
 		rt_ut::unit_test<"Float Precision", true>::assert_eq(true, test_float_precision);
 		rt_ut::unit_test<"Nested Struct", true>::assert_eq(std::make_tuple(42, uint64_t{ 3 }), test_nested_struct);
 		rt_ut::unit_test<"Shared Ptr", true>::assert_eq(true, test_shared_ptr);
