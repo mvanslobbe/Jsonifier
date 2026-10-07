@@ -188,6 +188,7 @@ namespace jsonifier::internal {
 						break;
 					}
 					++string1;
+					lengthNew = static_cast<uint64_t>(endIter - string1);
 				} else {
 					break;
 				}
