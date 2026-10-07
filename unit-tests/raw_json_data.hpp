@@ -369,6 +369,45 @@ namespace raw_json_data_tests {
 			return out;
 		});
 
+		static constexpr rt_ut::string_literal rejectInvalidName{ "raw_json_data_rejects_invalid_values" };
+		rt_ut::unit_test<rejectInvalidName, true>::assert_eq(true, [&] {
+			for (const char* json: { "[1,]", "[tru]", "[nul]", "[abc]", "[-]", "[01]", "[1.]", "[1]x", "{\"a\":fals}" }) {
+				jsonifier::raw_json_data data{};
+				if (parser.parseJson(data, std::string{ json })) {
+					return false;
+				}
+			}
+			return true;
+		});
+
+		static constexpr rt_ut::string_literal smallArrayCapacityName{ "raw_json_data_small_arrays_after_large_array" };
+		rt_ut::unit_test<smallArrayCapacityName, true>::assert_eq(true, [&] {
+			// A large array followed by small ones: the small arrays must not reserve the large array's size.
+			std::string json = "[[";
+			for (int i = 0; i < 1000; ++i) {
+				json += i ? ",0" : "0";
+			}
+			json += "],[1,2],[3,4]]";
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, json)) {
+				return false;
+			}
+			const auto& outer = data.getArray();
+			return outer.size() == 3 && outer[0ULL].getArray().size() == 1000 && outer[1ULL].getArray().size() == 2 && outer[1ULL].getArray().capacity() < 16 &&
+				outer[2ULL].getArray()[1ULL].getUint() == 4;
+		});
+
+		static constexpr rt_ut::string_literal nestedDecodeName{ "raw_json_data_nested_decode" };
+		rt_ut::unit_test<nestedDecodeName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, std::string{ R"({"a":[1,{"b":"c\"d"}],"e":true,"f":null,"g":-2.5})" })) {
+				return false;
+			}
+			auto& object = data.getObject();
+			return object["a"].getArray()[1ULL].getObject()["b"].getString() == "c\"d" && object["e"].getBool() && object["f"].getType() == jsonifier::json_type::null &&
+				std::bit_cast<uint64_t>(object["g"].getDouble()) == std::bit_cast<uint64_t>(-2.5);
+		});
+
 		std::cout << "raw_json_data validation tests complete." << std::endl;
 	}
 

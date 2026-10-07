@@ -13,6 +13,10 @@
 
 namespace jsonifier {
 
+	namespace internal {
+		template<typename value_type, typename context_type, parse_options options> struct parse_impl;
+	}
+
 	class json_number {
 	  public:
 		enum class number_types : uint8_t { uint64, int64, double64 };
@@ -267,6 +271,8 @@ namespace jsonifier {
 		}
 
 	  protected:
+		template<typename value_type_new, typename context_type, parse_options options> friend struct internal::parse_impl;
+
 		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
 			const read_buffer_ptr iter{ std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) };
