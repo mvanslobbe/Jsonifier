@@ -27,23 +27,23 @@ namespace jsonifier {
 				return;
 			}
 
-			if (sv[0] == '-') {
-				int64_t ival = 0;
-				auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
-				if (ptr == last) {
-					int_val		= ival;
-					number_type = number_types::int64;
-					return;
+			bool isFloat = false;
+			for (auto c = first; c != last; ++c) {
+				if (*c == '.' || *c == 'e' || *c == 'E') {
+					isFloat = true;
+					break;
 				}
-			} else {
-				bool isFloat = false;
-				for (auto c = first; c != last; ++c) {
-					if (*c == '.' || *c == 'e' || *c == 'E') {
-						isFloat = true;
-						break;
+			}
+			if (!isFloat) {
+				if (sv[0] == '-') {
+					int64_t ival = 0;
+					auto ptr	 = internal::integer_parser<int64_t>::parseInt(ival, first, last);
+					if (ptr == last) {
+						int_val		= ival;
+						number_type = number_types::int64;
+						return;
 					}
-				}
-				if (!isFloat) {
+				} else {
 					uint64_t uval = 0;
 					auto ptr	  = internal::integer_parser<uint64_t>::parseInt(uval, first, last);
 					if (ptr == last) {
