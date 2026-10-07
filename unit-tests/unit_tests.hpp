@@ -633,6 +633,27 @@ namespace unit_tests {
 			return true;
 		};
 
+		static constexpr auto test_validate_strict_scalars = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Each input sits in a heap buffer of exactly its size plus the null terminator.
+			auto validate = [&](std::string_view json) {
+				std::vector<char> buffer(json.size() + 1);
+				std::copy(json.begin(), json.end(), buffer.begin());
+				return parser.validateJson(std::string_view{ buffer.data(), json.size() });
+			};
+			for (std::string_view json:
+				{ "42", "-0", " 1.5e+10 ", "\"a\"", "\"\"", "true", "null", "[0,-0.0,1E5,1e-5,123.456e78]", "[\"\\u00e9\",\"\xC3\xA9\"]", "{\"a\" : 1 , \"b\" : [ ] }" }) {
+				if (!validate(json)) {
+					return false;
+				}
+			}
+			for (std::string_view json: { "[-]", "[+1]", "[1+2]", "[0x42]", "[01]", "[-01]", "[1.]", "[.5]", "[1e]", "[1e+]", "[--1]", "[1.5.5]", "[1ee5]", "[truex]", "[nullnull]",
+					 "[-Infinity]", "[\"\\x\"]", "[\"a\x01\"]", "[\"\xFF\"]", "[\"\xC3\"]", "[\"\xED\xA0\x80\"]", "[\"\xC0\xAF\"]", "\"a\" \"b\"", "1 2", "01", "-" }) {
+				if (validate(json)) {
+					return false;
+				}
+			}
+			return true;
 		static constexpr auto test_escaped_member_keys = []() {
 			jsonifier::jsonifier_core<> parser{};
 			escaped_keys value{ 1, 2, 3 };
@@ -1154,6 +1175,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Validate Invalid", true>::assert_eq(true, test_validate_invalid);
 		rt_ut::unit_test<"Skip String Escaped Quote", true>::assert_eq(true, test_skip_string_escaped_quote);
 		rt_ut::unit_test<"Validate Truncated Literals", true>::assert_eq(true, test_validate_truncated_literals);
+		rt_ut::unit_test<"Validate Strict Scalars", true>::assert_eq(true, test_validate_strict_scalars);
 		rt_ut::unit_test<"Escaped Member Keys", true>::assert_eq(true, test_escaped_member_keys);
 		rt_ut::unit_test<"Integer Truncated Fraction", true>::assert_eq(true, test_integer_truncated_fraction);
 		rt_ut::unit_test<"Float Precision", true>::assert_eq(true, test_float_precision);
