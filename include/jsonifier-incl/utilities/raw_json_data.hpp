@@ -22,13 +22,22 @@ namespace jsonifier {
 		enum class number_types : uint8_t { uint64, int64, double64 };
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
+			static_cast<void>(assign(sv));
+		}
+
+	  protected:
+		template<typename value_type_new, typename context_type, parse_options options> friend struct internal::parse_impl;
+
+		// Stores the number in sv. Returns false, leaving uint64 0, when sv does not hold a number that fits in a uint64_t,
+		// int64_t or double, e.g. 1e400.
+		JSONIFIER_INLINE bool assign(string_view sv) noexcept {
 			read_buffer_ptr first = std::bit_cast<read_buffer_ptr>(sv.data());
 			read_buffer_ptr last  = std::bit_cast<read_buffer_ptr>(sv.data() + sv.size());
 
 			if (sv.empty()) {
 				uint_val	= 0;
 				number_type = number_types::uint64;
-				return;
+				return true;
 			}
 
 			bool isFloat = false;
@@ -45,7 +54,7 @@ namespace jsonifier {
 					if (ptr == last) {
 						int_val		= ival;
 						number_type = number_types::int64;
-						return;
+						return true;
 					}
 				} else {
 					uint64_t uval = 0;
@@ -53,7 +62,7 @@ namespace jsonifier {
 					if (ptr == last) {
 						uint_val	= uval;
 						number_type = number_types::uint64;
-						return;
+						return true;
 					}
 				}
 			}
@@ -63,12 +72,14 @@ namespace jsonifier {
 			if (ptr == last) {
 				double_val	= dval;
 				number_type = number_types::double64;
-			} else {
-				uint_val	= 0;
-				number_type = number_types::uint64;
+				return true;
 			}
+			uint_val	= 0;
+			number_type = number_types::uint64;
+			return false;
 		}
 
+	  public:
 		JSONIFIER_INLINE bool friend operator==(const json_number& lhs, const json_number& rhs) {
 			if (lhs.number_type == rhs.number_type) {
 				switch (static_cast<uint64_t>(lhs.number_type)) {

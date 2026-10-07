@@ -1949,7 +1949,10 @@ namespace jsonifier::internal {
 			} else if (token == "null") {
 				value.value.template emplace<typename value_type::null_type>();
 			} else if (isJsonNumber(token)) {
-				value.value.template emplace<typename value_type::number_type>(token);
+				if (!value.value.template emplace<typename value_type::number_type>().assign(token)) [[unlikely]] {
+					// Valid grammar but out of range for a double, e.g. 1e400: rejected like a typed double.
+					return cursor::template reject<parse_statuses::invalid_number_value>(tokenIter, context) ? iter : nullptr;
+				}
 			} else {
 				return cursor::template reject<parse_statuses::unexpected_token>(tokenIter, context) ? iter : nullptr;
 			}

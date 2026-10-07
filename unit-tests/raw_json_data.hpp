@@ -380,6 +380,29 @@ namespace raw_json_data_tests {
 			return true;
 		});
 
+		static constexpr rt_ut::string_literal outOfRangeName{ "raw_json_data_rejects_out_of_range_numbers" };
+		rt_ut::unit_test<outOfRangeName, true>::assert_eq(true, [&] {
+			// Valid grammar, but too large for a double: rejected, as when parsing into a typed double.
+			for (const char* json: { "1e400", "-1e400", "[1,1e400]", "{\"a\":-1e400}" }) {
+				jsonifier::raw_json_data data{};
+				if (parser.parseJson(data, std::string{ json })) {
+					return false;
+				}
+			}
+			return true;
+		});
+
+		static constexpr rt_ut::string_literal largeFiniteName{ "raw_json_data_keeps_large_finite_numbers" };
+		rt_ut::unit_test<largeFiniteName, true>::assert_eq(true, [&] {
+			jsonifier::raw_json_data data{};
+			if (!parser.parseJson(data, std::string{ "[1e308,-1e308,1e-400,18446744073709551616]" })) {
+				return false;
+			}
+			const auto& values = data.getArray();
+			return values[0ULL].getDouble() > 9e307 && values[1ULL].getDouble() < -9e307 && values[2ULL].getNumber().getType() == jsonifier::json_number::number_types::double64 &&
+				values[3ULL].getDouble() > 1.8e19;
+		});
+
 		static constexpr rt_ut::string_literal smallArrayCapacityName{ "raw_json_data_small_arrays_after_large_array" };
 		rt_ut::unit_test<smallArrayCapacityName, true>::assert_eq(true, [&] {
 			// A large array followed by small ones: the small arrays must not reserve the large array's size.
