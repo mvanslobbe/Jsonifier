@@ -21,6 +21,18 @@ template<> struct jsonifier::core<simple_struct> {
 	static constexpr auto parseValue = createValue<&value_type::id, &value_type::name, &value_type::value>();
 };
 
+struct escaped_keys {
+	int32_t quote{};
+	int32_t backslash{};
+	int32_t both{};
+};
+
+template<> struct jsonifier::core<escaped_keys> {
+	using value_type = escaped_keys;
+	static constexpr auto parseValue =
+		createValue<makeJsonEntity<&value_type::quote, "say \"hi\"">(), makeJsonEntity<&value_type::backslash, "C:\\dir">(), makeJsonEntity<&value_type::both, "\\\"">()>();
+};
+
 struct char_roundtrip {
 	uint8_t uchar_val{};
 	int32_t int_val{};
@@ -621,6 +633,21 @@ namespace unit_tests {
 			return true;
 		};
 
+		static constexpr auto test_escaped_member_keys = []() {
+			jsonifier::jsonifier_core<> parser{};
+			escaped_keys value{ 1, 2, 3 };
+			std::string json{};
+			parser.serializeJson(value, json);
+			if (json != R"({"say \"hi\"":1,"C:\\dir":2,"\\\"":3})" || !parser.validateJson(json)) {
+				return false;
+			}
+			// Keys out of declaration order go through the hash lookup instead of the in-order fast path.
+			escaped_keys parsed{};
+			if (!parser.parseJson(parsed, std::string{ R"({"\\\"":3,"C:\\dir":2,"say \"hi\"":1})" })) {
+				return false;
+			}
+			return parsed.quote == 1 && parsed.backslash == 2 && parsed.both == 3;
+
 		static constexpr auto test_integer_truncated_fraction = []() {
 			jsonifier::jsonifier_core<> parser{};
 			// Exactly the input, no terminator, so AddressSanitizer reports any read past it.
@@ -1127,6 +1154,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Validate Invalid", true>::assert_eq(true, test_validate_invalid);
 		rt_ut::unit_test<"Skip String Escaped Quote", true>::assert_eq(true, test_skip_string_escaped_quote);
 		rt_ut::unit_test<"Validate Truncated Literals", true>::assert_eq(true, test_validate_truncated_literals);
+		rt_ut::unit_test<"Escaped Member Keys", true>::assert_eq(true, test_escaped_member_keys);
 		rt_ut::unit_test<"Integer Truncated Fraction", true>::assert_eq(true, test_integer_truncated_fraction);
 		rt_ut::unit_test<"Float Precision", true>::assert_eq(true, test_float_precision);
 		rt_ut::unit_test<"Nested Struct", true>::assert_eq(std::make_tuple(42, uint64_t{ 3 }), test_nested_struct);

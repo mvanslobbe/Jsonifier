@@ -43,7 +43,7 @@ namespace jsonifier::internal {
 					return;
 				}
 			}
-			requiredSize += objectEntrySize<options, json_entity_type::name>();
+			requiredSize += objectEntrySize<options, escapedKeyLiteral<json_entity_type::name>>();
 			using v_type = remove_cv_t<decltype(getMember<json_entity_type::memberPtr>(value))>;
 			if constexpr (has_static_size<get_size_impl<v_type, options>>) {
 				requiredSize += get_size_impl<v_type, options>::staticSize;
@@ -525,13 +525,13 @@ namespace jsonifier::internal {
 			}
 			if constexpr (!options.prettify && !has_excluded_keys<value_type>) {
 				if constexpr (json_entity_type::index == 0) {
-					packed_blitter<string_literal{ "\"" } + json_entity_type::name + string_literal{ "\":" }>::blit(bufferPtr);
+					packed_blitter<string_literal{ "\"" } + escapedKeyLiteral<json_entity_type::name> + string_literal{ "\":" }>::blit(bufferPtr);
 				} else {
-					packed_blitter<string_literal{ ",\"" } + json_entity_type::name + string_literal{ "\":" }>::blit(bufferPtr);
+					packed_blitter<string_literal{ ",\"" } + escapedKeyLiteral<json_entity_type::name> + string_literal{ "\":" }>::blit(bufferPtr);
 				}
 				return serialize<options>::impl(getMember<json_entity_type::memberPtr>(value), bufferPtr, indent);
 			} else {
-				bufferPtr = writeObjectEntry<options, json_entity_type::name>(bufferPtr);
+				bufferPtr = writeObjectEntry<options, escapedKeyLiteral<json_entity_type::name>>(bufferPtr);
 				bufferPtr = serialize<options>::impl(getMember<json_entity_type::memberPtr>(value), bufferPtr, indent);
 				return writeObjectExit<options, json_entity_type::isItLast>(bufferPtr, indent);
 			}
