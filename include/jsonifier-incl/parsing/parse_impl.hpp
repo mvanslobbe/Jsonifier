@@ -1875,9 +1875,9 @@ namespace jsonifier::internal {
 
 		// RFC 8259 number grammar: -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
 		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
-			auto iter		= token.data();
-			const auto end	= iter + token.size();
-			auto digits		= [&]() {
+			auto iter	   = token.data();
+			const auto end = iter + token.size();
+			auto digits	   = [&]() {
 				const auto start = iter;
 				while (iter < end && is_digit(static_cast<uint8_t>(*iter))) {
 					++iter;

@@ -654,6 +654,8 @@ namespace unit_tests {
 				}
 			}
 			return true;
+		};
+
 		static constexpr auto test_escaped_member_keys = []() {
 			jsonifier::jsonifier_core<> parser{};
 			escaped_keys value{ 1, 2, 3 };
@@ -668,6 +670,7 @@ namespace unit_tests {
 				return false;
 			}
 			return parsed.quote == 1 && parsed.backslash == 2 && parsed.both == 3;
+		};
 
 		static constexpr auto test_integer_truncated_fraction = []() {
 			jsonifier::jsonifier_core<> parser{};
@@ -677,7 +680,7 @@ namespace unit_tests {
 				return parser.parseJson<jsonifier::parse_options{ .nullTerminated = false }>(value, std::string_view{ buffer.data(), buffer.size() });
 			};
 			// An integer whose fraction or exponent runs into the end of the input.
-			for (std::string_view json : { "[1.", "[1.5", "[1e", "[1e5", "[1.5e", "[1.5e1", "[1.5e+" }) {
+			for (std::string_view json: { "[1.", "[1.5", "[1e", "[1e5", "[1.5e", "[1.5e1", "[1.5e+" }) {
 				std::vector<int64_t> signedValues{};
 				std::vector<uint64_t> unsignedValues{};
 				if (parseExact(json, signedValues) || parseExact(json, unsignedValues)) {
