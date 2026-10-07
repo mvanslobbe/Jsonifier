@@ -582,6 +582,23 @@ namespace unit_tests {
 			return !parser.validateJson(json);
 		};
 
+		static constexpr auto test_validate_truncated_literals = []() {
+			jsonifier::jsonifier_core<> parser{};
+			// Each input sits in a heap buffer of exactly its size plus the null
+			// terminator, so AddressSanitizer reports any read past the end.
+			for (std::string_view json : { "[t", "[f", "[n", "[tru", "[fals", "[nul", "t", "f", "n" }) {
+				std::vector<char> buffer(json.size() + 1);
+				std::copy(json.begin(), json.end(), buffer.begin());
+				if (parser.validateJson(std::string_view{ buffer.data(), json.size() })) {
+					return false;
+				}
+			}
+			// A '0' followed by a byte >= 0x80 used to index numberTable with a
+			// negative offset; only the absence of a sanitizer report is checked.
+			static_cast<void>(parser.validateJson(std::string_view{ "[0\xE5]" }));
+			return true;
+		};
+
 		static constexpr auto test_float_precision = []() {
 			jsonifier::jsonifier_core<> parser{};
 			FloatPrecision fp{};
@@ -1065,6 +1082,7 @@ namespace unit_tests {
 		rt_ut::unit_test<"Minify", true>::assert_eq(true, test_minify);
 		rt_ut::unit_test<"Validate Valid", true>::assert_eq(true, test_validate_valid);
 		rt_ut::unit_test<"Validate Invalid", true>::assert_eq(true, test_validate_invalid);
+		rt_ut::unit_test<"Validate Truncated Literals", true>::assert_eq(true, test_validate_truncated_literals);
 		rt_ut::unit_test<"Float Precision", true>::assert_eq(true, test_float_precision);
 		rt_ut::unit_test<"Nested Struct", true>::assert_eq(std::make_tuple(42, uint64_t{ 3 }), test_nested_struct);
 		rt_ut::unit_test<"Shared Ptr", true>::assert_eq(true, test_shared_ptr);
