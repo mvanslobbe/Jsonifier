@@ -1125,7 +1125,10 @@ namespace jsonifier::internal {
 	static constexpr uint64_t maxHintedElements{ 4096 / sizeof(typename value_type::value_type) > 0 ? 4096 / sizeof(typename value_type::value_type) : 1 };
 
 	template<typename value_type> JSONIFIER_INLINE static void reserveFromHint(value_type& value) noexcept {
-		if constexpr (has_reserve<value_type>) {
+		// The hint is shared by every array of this type and only grows, so for
+		// raw_json_data it would make each small nested array reserve the
+		// largest size seen anywhere in the document.
+		if constexpr (has_reserve<value_type> && !raw_json_t<typename value_type::value_type>) {
 			const uint64_t target = elementCountHint<value_type> < maxHintedElements<value_type> ? elementCountHint<value_type> : maxHintedElements<value_type>;
 			if constexpr (requires { value.capacity(); }) {
 				if (value.capacity() >= target) {
@@ -1870,7 +1873,46 @@ namespace jsonifier::internal {
 		using iterator_type = typename context_type::iterator_type;
 		using cursor		= cursor_t<options, context_type>;
 
-		JSONIFIER_INLINE static iterator_type impl([[maybe_unused]] value_type& value, iterator_type iter, uint64_t, context_type& context) noexcept {
+		// RFC 8259 number grammar: -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
+		JSONIFIER_INLINE static bool isJsonNumber(string_view token) noexcept {
+			auto iter		= token.data();
+			const auto end	= iter + token.size();
+			auto digits		= [&]() {
+				const auto start = iter;
+				while (iter < end && is_digit(static_cast<uint8_t>(*iter))) {
+					++iter;
+				}
+				return iter != start;
+			};
+			if (iter < end && *iter == '-') {
+				++iter;
+			}
+			if (iter < end && *iter == '0') {
+				++iter;
+			} else if (!digits()) {
+				return false;
+			}
+			if (iter < end && *iter == '.') {
+				++iter;
+				if (!digits()) {
+					return false;
+				}
+			}
+			if (iter < end && (*iter == 'e' || *iter == 'E')) {
+				++iter;
+				if (iter < end && (*iter == '+' || *iter == '-')) {
+					++iter;
+				}
+				if (!digits()) {
+					return false;
+				}
+			}
+			return iter == end;
+		}
+
+		// Decodes the value in place, in a single pass: containers and strings go
+		// straight to the regular parsers, scalars are read from their token.
+		JSONIFIER_INLINE static iterator_type impl(value_type& value, iterator_type iter, uint64_t depth, context_type& context) noexcept {
 			if constexpr (!options.minified && !structural_context<context_type>) {
 				cursor::skipWhitespaceScalar(iter, context);
 			}
@@ -1878,6 +1920,17 @@ namespace jsonifier::internal {
 				return nullptr;
 			}
 			const read_buffer_ptr newPtr = cursor::valuePtr(iter, context);
+			switch (*newPtr) {
+				case '{':
+					return parse<options>::impl(value.value.template emplace<typename value_type::object_type>(), iter, depth, context);
+				case '[':
+					return parse<options>::impl(value.value.template emplace<typename value_type::array_type>(), iter, depth, context);
+				case '"':
+					return parse<options>::impl(value.value.template emplace<typename value_type::string_type>(), iter, depth, context);
+				default:
+					break;
+			}
+			const iterator_type tokenIter = iter;
 			if (!cursor::skipValue(iter, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -1888,11 +1941,17 @@ namespace jsonifier::internal {
 					--newSize;
 				}
 			}
-			if (newSize > 0) [[likely]] {
-				string newString{};
-				newString.resize(newSize);
-				jsonifierMemcpy(newString.data(), newPtr, newSize);
-				value = value_type{ context, newString };
+			const string_view token{ std::bit_cast<const char*>(newPtr), newSize };
+			if (token == "true") {
+				value.value.template emplace<typename value_type::bool_type>(true);
+			} else if (token == "false") {
+				value.value.template emplace<typename value_type::bool_type>(false);
+			} else if (token == "null") {
+				value.value.template emplace<typename value_type::null_type>();
+			} else if (isJsonNumber(token)) {
+				value.value.template emplace<typename value_type::number_type>(token);
+			} else {
+				return cursor::template reject<parse_statuses::unexpected_token>(tokenIter, context) ? iter : nullptr;
 			}
 			return iter;
 		}
