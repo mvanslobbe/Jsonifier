@@ -36,8 +36,8 @@ namespace jsonifier::internal {
 			: endStructural{ endStructuralNew }, prettifier{ prettifierNew }, iter{ iterNew }, rootIter{ rootIterNew }, dataPtr{ dataPtrNew }, endIter{ endIterNew } {
 		}
 
-		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr __restrict ptrNew, uint64_t) noexcept {
-			const auto index = prettifier.template impl<options>(iter, endStructural, dataPtr, ptrNew, rootIter, endIter);
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
+			const auto index = prettifier.template impl<options>(iter, endStructural, dataPtr, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
 
@@ -63,7 +63,7 @@ namespace jsonifier::internal {
 		inline bool prettifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
 			static constexpr prettify_options optionsFinal{ options };
 			derivedRef.errors.clear();
-			const auto* dataPtr		 = in.data();
+			read_buffer_ptr dataPtr	 = std::bit_cast<read_buffer_ptr>(in.data());
 			read_buffer_ptr rootIter = dataPtr;
 			read_buffer_ptr endIter	 = dataPtr + in.size();
 			derivedRef.section.template reset<true>(dataPtr, in.size());

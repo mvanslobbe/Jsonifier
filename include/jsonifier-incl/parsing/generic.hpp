@@ -344,7 +344,7 @@ namespace jsonifier::generic {
 				return false;
 			}
 			char* unescaped	   = arena->scratch();
-			const auto scanned = internal::string_scanner<parse_options{}>::impl(keyStart, end, unescaped);
+			const auto scanned = internal::string_scanner<parse_options{}>::impl(keyStart, end, std::bit_cast<write_buffer_ptr>(unescaped));
 			return scanned.outLength == key.size() && internal::comparison::compare(unescaped, key.data(), key.size());
 		}
 
@@ -363,7 +363,7 @@ namespace jsonifier::generic {
 			error_code result{ error_code::tape_error };
 			if (position >= limit) [[unlikely]] {
 				result = error_code::unclosed_container;
-			} else if (const char separator = base[*position]; separator == ',') [[likely]] {
+			} else if (const uint8_t separator = base[*position]; separator == ',') [[likely]] {
 				++position;
 				next   = position;
 				result = position < limit ? error_code::success : error_code::unclosed_container;
@@ -385,7 +385,7 @@ namespace jsonifier::generic {
 			uint64_t openCount{ 1 };
 			++iter;
 			while (iter < limit) {
-				const char current = base[*iter];
+				const uint8_t current = base[*iter];
 				++iter;
 				if (isOpener(current)) {
 					++openCount;
@@ -413,7 +413,7 @@ namespace jsonifier::generic {
 			uint64_t& currentDepth, uint64_t targetDepth) noexcept {
 			uint64_t localDepth{ currentDepth };
 			while (localDepth > targetDepth && position < limit) {
-				const char current = base[*position];
+				const uint8_t current = base[*position];
 				++position;
 				if (isOpener(current)) {
 					++localDepth;
@@ -441,15 +441,15 @@ namespace jsonifier::generic {
 			return root[*iter] == value;
 		}
 
-		JSONIFIER_INLINE char charAt(const_structural_index_ptr iter) const noexcept {
+		JSONIFIER_INLINE uint8_t charAt(const_structural_index_ptr iter) const noexcept {
 			return root[*iter];
 		}
 
-		JSONIFIER_INLINE static bool isOpener(char c) noexcept {
+		JSONIFIER_INLINE static bool isOpener(uint8_t c) noexcept {
 			return (c | 0x20) == '{';
 		}
 
-		JSONIFIER_INLINE static bool isCloser(char c) noexcept {
+		JSONIFIER_INLINE static bool isCloser(uint8_t c) noexcept {
 			return (c | 0x20) == '}';
 		}
 
@@ -595,14 +595,14 @@ namespace jsonifier::generic {
 				if (afterClose == doc->tapeEnd && !document_state::isCloser(doc->charAt(afterClose - 1))) [[unlikely]] {
 					return error_code::unclosed_container;
 				}
-				out = string_view{ valueStart, static_cast<uint64_t>(doc->root + *(afterClose - 1) + 1 - valueStart) };
+				out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(doc->root + *(afterClose - 1) + 1 - valueStart) };
 				return error_code::success;
 			}
 			read_buffer_ptr valueEnd = doc->root + *(iter + 1);
 			while (valueEnd > valueStart && isWhitespace(valueEnd[-1])) {
 				--valueEnd;
 			}
-			out = string_view{ valueStart, static_cast<uint64_t>(valueEnd - valueStart) };
+			out = string_view{ std::bit_cast<const char*>(valueStart), static_cast<uint64_t>(valueEnd - valueStart) };
 			return error_code::success;
 		}
 
@@ -683,7 +683,7 @@ namespace jsonifier::generic {
 			if (err != error_code::success) [[unlikely]] {
 				return json_type::unset;
 			}
-			return typeTable[static_cast<uint8_t>(doc->charAt(iter))];
+			return typeTable[doc->charAt(iter)];
 		}
 
 		JSONIFIER_INLINE value(document_state* docNew, const_structural_index_ptr iterNew, uint64_t depthNew) noexcept : iter{ iterNew }, doc{ docNew }, depth{ depthNew } {
@@ -808,16 +808,16 @@ namespace jsonifier::generic {
 		template<jsonifier::internal::string_t value_type> JSONIFIER_INLINE error_code unescape(const_structural_index_ptr stringIter, value_type& result) const noexcept {
 			read_buffer_ptr stringStart = doc->root + *stringIter + 1;
 			if (const uint64_t directLength = zeroCopyLength<true>(stringStart); directLength != noZeroCopy) [[likely]] {
-				result = value_type{ stringStart, directLength };
+				result = value_type{ std::bit_cast<const char*>(stringStart), directLength };
 				return error_code::success;
 			}
 			char* scratch	   = doc->arena->scratch();
-			const auto scanned = internal::string_scanner<parse_options{}>::impl(stringStart, doc->end, scratch);
+			const auto scanned = internal::string_scanner<parse_options{}>::impl(stringStart, doc->end, std::bit_cast<write_buffer_ptr>(scratch));
 			if (scanned.outLength == std::numeric_limits<uint64_t>::max()) [[unlikely]] {
 				return error_code::string_error;
 			}
 			if (scanned.outLength == scanned.rawLength) {
-				result = value_type{ stringStart, scanned.rawLength };
+				result = value_type{ std::bit_cast<const char*>(stringStart), scanned.rawLength };
 				return error_code::success;
 			}
 			char* slot = doc->arena->slot(static_cast<uint64_t>(stringStart - doc->root));
@@ -892,11 +892,11 @@ namespace jsonifier::generic {
 		}
 
 		JSONIFIER_INLINE bool isNumberStart() const noexcept {
-			return err == error_code::success && typeTable[static_cast<uint8_t>(doc->charAt(iter))] == json_type::number;
+			return err == error_code::success && typeTable[doc->charAt(iter)] == json_type::number;
 		}
 
-		JSONIFIER_INLINE static bool isWhitespace(char c) noexcept {
-			return jsonifier::internal::whitespaceTable[static_cast<uint8_t>(c)];
+		JSONIFIER_INLINE static bool isWhitespace(uint8_t c) noexcept {
+			return jsonifier::internal::whitespaceTable[c];
 		}
 
 		JSONIFIER_INLINE error_code typeError() const noexcept {
@@ -926,7 +926,7 @@ namespace jsonifier::generic {
 			read_buffer_ptr keyEnd	 = doc->root + *(iter + 1);
 			while (*--keyEnd != '"') {
 			}
-			return string_view{ keyStart, static_cast<uint64_t>(keyEnd - keyStart) };
+			return string_view{ std::bit_cast<const char*>(keyStart), static_cast<uint64_t>(keyEnd - keyStart) };
 		}
 
 		JSONIFIER_INLINE field(document_state* docNew, const_structural_index_ptr iterNew, uint64_t depthNew, error_code errNew = error_code::success) noexcept
@@ -1117,7 +1117,7 @@ namespace jsonifier::generic {
 				indexed = true;
 			}
 			const uint32_t object = objectIndex();
-			const uint64_t hash	  = field_index_map::hashKey(key.data(), key.size(), object);
+			const uint64_t hash	  = field_index_map::hashKey(std::bit_cast<read_buffer_ptr>(key.data()), key.size(), object);
 			const uint32_t hit	  = state->fieldIndex->find(hash, object, [state, key](uint32_t keyIndex) noexcept {
 				return state->keyMatches(state->tape + keyIndex, key);
 			});
@@ -1136,7 +1136,7 @@ namespace jsonifier::generic {
 			const_structural_index_ptr cursor  = open + 1;
 			const_structural_index_ptr tapeEnd = state->tapeEnd;
 			while (cursor < tapeEnd) {
-				const char current = state->charAt(cursor);
+				const uint8_t current = state->charAt(cursor);
 				if (current == '}') {
 					return;
 				}
@@ -1158,7 +1158,7 @@ namespace jsonifier::generic {
 			const_structural_index_ptr tapeEnd = state->tapeEnd;
 			bool expectSeparator{};
 			while (cursor < stop) {
-				const char current = state->charAt(cursor);
+				const uint8_t current = state->charAt(cursor);
 				if (current == ',') {
 					++cursor;
 					expectSeparator = false;
@@ -1677,11 +1677,11 @@ namespace jsonifier::generic {
 			}
 		}
 
-		JSONIFIER_INLINE static bool startsDocument(char c) noexcept {
+		JSONIFIER_INLINE static bool startsDocument(uint8_t c) noexcept {
 			return !document_state::isCloser(c) && c != ',' && c != ':';
 		}
 
-		JSONIFIER_INLINE static bool endsValue(char c) noexcept {
+		JSONIFIER_INLINE static bool endsValue(uint8_t c) noexcept {
 			return !document_state::isOpener(c) && c != ',' && c != ':';
 		}
 
@@ -1729,11 +1729,11 @@ namespace jsonifier::generic {
 
 		JSONIFIER_INLINE const_structural_index_ptr findDocumentEnd(const_structural_index_ptr start) noexcept {
 			const document_state& state = parser->state;
-			const char first			= state.charAt(start);
+			const uint8_t first			= state.charAt(start);
 			if (document_state::isOpener(first)) {
 				uint64_t openCount{ 1 };
 				for (const_structural_index_ptr iter = start + 1; iter < windowTapeEnd; ++iter) {
-					const char current = state.charAt(iter);
+					const uint8_t current = state.charAt(iter);
 					if (document_state::isOpener(current)) {
 						++openCount;
 					} else if (document_state::isCloser(current) && --openCount == 0) {
@@ -1785,7 +1785,7 @@ namespace jsonifier::generic {
 			while (stop > start && isSeparatorByte(base[stop - 1])) {
 				--stop;
 			}
-			return string_view{ base + start, stop - start };
+			return string_view{ std::bit_cast<const char*>(base + start), stop - start };
 		}
 
 		JSONIFIER_INLINE void bindDocument(const_structural_index_ptr begin, const_structural_index_ptr end) noexcept {
@@ -1822,7 +1822,7 @@ namespace jsonifier::generic {
 			return err == error_code::success ? windowStart + *docBegin : windowStart;
 		}
 
-		JSONIFIER_INLINE static bool isSeparatorByte(char c) noexcept {
+		JSONIFIER_INLINE static bool isSeparatorByte(uint8_t c) noexcept {
 			return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == ',';
 		}
 
@@ -1850,7 +1850,7 @@ namespace jsonifier::generic {
 		static constexpr uint64_t defaultBatchSize{ 1024 * 1024 };
 
 		template<parse_options options = parse_options{}, typename buffer_type> inline document iterate(const buffer_type& in) noexcept {
-			read_buffer_ptr rootIter = in.data();
+			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			const uint64_t length	 = in.size();
 			if (!rootIter || length == 0) [[unlikely]] {
 				return document{ error_code::empty };
@@ -1875,7 +1875,7 @@ namespace jsonifier::generic {
 
 		template<parse_options options = parse_options{ .newLineDelimited = true }, typename buffer_type>
 		inline document_stream<parser, options> iterateMany(const buffer_type& in, uint64_t batchSize = defaultBatchSize) noexcept {
-			return document_stream<parser, options>{ *this, in.data(), in.size(), batchSize };
+			return document_stream<parser, options>{ *this, std::bit_cast<read_buffer_ptr>(in.data()), in.size(), batchSize };
 		}
 
 		inline parser() noexcept {

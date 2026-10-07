@@ -77,8 +77,8 @@ namespace jsonifier::internal {
 		return returnValue;
 	}() };
 
-	alignas(64) static constexpr array<read_buffer_ptr, 256> charEscapeTable{ [] {
-		array<read_buffer_ptr, 256> returnValue{};
+	alignas(64) static constexpr array<const char*, 256> charEscapeTable{ [] {
+		array<const char*, 256> returnValue{};
 		for (uint64_t x = 0; x < 256; ++x) {
 			returnValue[x] = +charEscapeStorage[x];
 		}
@@ -247,7 +247,7 @@ namespace jsonifier::internal {
 		return value1 < static_cast<value_type01>(value2) ? value1 : static_cast<value_type01>(value2);
 	}
 
-	JSONIFIER_INLINE constexpr uint64_t strLen(read_buffer_ptr input) noexcept {
+	JSONIFIER_INLINE constexpr uint64_t strLen(const char* input) noexcept {
 		uint64_t returnVal{};
 		if (input) {
 			while (input[returnVal] != '\0') {

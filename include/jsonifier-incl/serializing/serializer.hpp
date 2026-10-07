@@ -31,9 +31,10 @@ namespace jsonifier::internal {
 	};
 
 	template<serialize_options options, typename value_type> struct serialize_writer_ro {
-		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr ptrNew, uint64_t) noexcept {
-			const write_buffer_ptr bufferPtr = serialize<options>::impl(object, ptrNew, 0);
-			return static_cast<uint64_t>(bufferPtr - ptrNew);
+		JSONIFIER_INLINE uint64_t operator()(char* ptrNew, uint64_t) noexcept {
+			const write_buffer_ptr start	 = std::bit_cast<write_buffer_ptr>(ptrNew);
+			const write_buffer_ptr bufferPtr = serialize<options>::impl(object, start, 0);
+			return static_cast<uint64_t>(bufferPtr - start);
 		}
 
 		JSONIFIER_INLINE serialize_writer_ro(value_type& objectNew) noexcept : object{ objectNew } {

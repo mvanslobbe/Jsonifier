@@ -92,27 +92,27 @@ namespace jsonifier::internal {
 	}
 
 	// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
-	JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, write_buffer_ptr c) noexcept {
+	template<typename char_type> JSONIFIER_INLINE static uint32_t codePointToUtf8(uint32_t cp, char_type* c) noexcept {
 		if (cp <= 0x7F) {
-			c[0] = static_cast<char>(cp);
+			c[0] = static_cast<char_type>(cp);
 			return 1;
 		}
 		if (cp <= 0x7FF) {
-			c[0] = static_cast<char>(0xC0 | ((cp >> 6) & 0x1F));
-			c[1] = static_cast<char>(0x80 | (cp & 0x3F));
+			c[0] = static_cast<char_type>(0xC0 | ((cp >> 6) & 0x1F));
+			c[1] = static_cast<char_type>(0x80 | (cp & 0x3F));
 			return 2;
 		}
 		if (cp <= 0xFFFF) {
-			c[0] = static_cast<char>(0xE0 | ((cp >> 12) & 0x0F));
-			c[1] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-			c[2] = static_cast<char>(0x80 | (cp & 0x3F));
+			c[0] = static_cast<char_type>(0xE0 | ((cp >> 12) & 0x0F));
+			c[1] = static_cast<char_type>(0x80 | ((cp >> 6) & 0x3F));
+			c[2] = static_cast<char_type>(0x80 | (cp & 0x3F));
 			return 3;
 		}
 		if (cp <= 0x10FFFF) {
-			c[0] = static_cast<char>(0xF0 | ((cp >> 18) & 0x07));
-			c[1] = static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
-			c[2] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-			c[3] = static_cast<char>(0x80 | (cp & 0x3F));
+			c[0] = static_cast<char_type>(0xF0 | ((cp >> 18) & 0x07));
+			c[1] = static_cast<char_type>(0x80 | ((cp >> 12) & 0x3F));
+			c[2] = static_cast<char_type>(0x80 | ((cp >> 6) & 0x3F));
+			c[3] = static_cast<char_type>(0x80 | (cp & 0x3F));
 			return 4;
 		}
 		return 0;
@@ -287,7 +287,7 @@ namespace jsonifier::internal {
 			if (decoded == 0u) [[unlikely]] {
 				return false;
 			}
-			*dstPtr = static_cast<char>(decoded);
+			*dstPtr = static_cast<std::remove_cvref_t<decltype(*dstPtr)>>(decoded);
 			++dstPtr;
 			srcPtr += 2;
 			return true;
@@ -394,7 +394,7 @@ namespace jsonifier::internal {
 							break;
 						}
 
-						*string2 = static_cast<char>(currentChar);
+						*string2 = static_cast<std::remove_cvref_t<decltype(*string2)>>(currentChar);
 						++string2;
 						++string1Start;
 					}
@@ -578,11 +578,11 @@ namespace jsonifier::internal {
 		}
 	};
 
-	alignas(64) static constexpr array<read_buffer_ptr, 256> escapeTable{ { "", R"(\u0001)", R"(\u0002)", R"(\u0003)", R"(\u0004)", R"(\u0005)", R"(\u0006)", R"(\a)", R"(\b)",
-		R"(\t)", R"(\n)", R"(\v)", R"(\f)", R"(\r)", R"(\u000E)", R"(\u000F)", R"(\u0010)", R"(\u0011)", R"(\u0012)", R"(\u0013)", R"(\u0014)", R"(\u0015)", R"(\u0016)",
-		R"(\u0017)", R"(\u0018)", R"(\u0019)", R"(\u001A)", R"(\u001B)", R"(\u001C)", R"(\u001D)", R"(\u001E)", R"(\u001F)", "", "", R"(\")", "", "", "", "", "", "", "", "", "",
+	alignas(64) static constexpr array<const char*, 256> escapeTable{ { "", R"(\u0001)", R"(\u0002)", R"(\u0003)", R"(\u0004)", R"(\u0005)", R"(\u0006)", R"(\a)", R"(\b)", R"(\t)",
+		R"(\n)", R"(\v)", R"(\f)", R"(\r)", R"(\u000E)", R"(\u000F)", R"(\u0010)", R"(\u0011)", R"(\u0012)", R"(\u0013)", R"(\u0014)", R"(\u0015)", R"(\u0016)", R"(\u0017)",
+		R"(\u0018)", R"(\u0019)", R"(\u001A)", R"(\u001B)", R"(\u001C)", R"(\u001D)", R"(\u001E)", R"(\u001F)", "", "", R"(\")", "", "", "", "", "", "", "", "", "", "", "", "", "",
 		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-		"", "", "", "", "", R"(\\)", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "" } };
+		"", R"(\\)", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "" } };
 
 	alignas(64) static constexpr array<uint64_t, 256> escapeTableSizes{ []() constexpr {
 		array<uint64_t, 256> returnValues{};
@@ -606,7 +606,7 @@ namespace jsonifier::internal {
 				uint64_t nextSize;
 				uint8_t nextChar;
 				integer_type nextEscapeable;
-				read_buffer_ptr escapeChar;
+				const char* escapeChar;
 				const auto stringEndNew = string1End - bytesProcessed;
 
 				const simd_type simdValues01 = simd::gatherValue<simd_type>('"');
@@ -656,7 +656,7 @@ namespace jsonifier::internal {
 					jsonifierMemcpy(string2, escapeTable[nextChar], escapeSize);
 					string2 += escapeSize;
 				} else {
-					*string2 = *string1Start;
+					*string2 = nextChar;
 					++string2;
 				}
 			}
@@ -741,7 +741,7 @@ namespace jsonifier::internal {
 			} else if (length == 1) {
 				const uint8_t nextChar = static_cast<uint8_t>(*string1Start);
 				if (escapeTableSizes[nextChar] == 0) {
-					*string2 = *string1Start;
+					*string2 = nextChar;
 					++string1Start;
 					return string2 + 1;
 				}
@@ -753,6 +753,7 @@ namespace jsonifier::internal {
 		// Sampled from Dr. Lemire's library, simdjson: https://github.com/simdjson/simdjson
 		template<typename basic_iterator01, typename basic_iterator02>
 		JSONIFIER_INLINE static void copyUpTo16(basic_iterator02 destination, basic_iterator01 source, uint64_t length) noexcept {
+			using value_type = std::remove_cvref_t<decltype(*destination)>;
 			if (length >= 8) {
 				pow2MemcpyWrapper<8>(destination, source);
 				pow2MemcpyWrapper<8>(destination + length - 8, source + length - 8);
@@ -760,9 +761,9 @@ namespace jsonifier::internal {
 				pow2MemcpyWrapper<4>(destination, source);
 				pow2MemcpyWrapper<4>(destination + length - 4, source + length - 4);
 			} else if (length > 0) {
-				destination[0]			= source[0];
-				destination[length >> 1] = source[length >> 1];
-				destination[length - 1]	= source[length - 1];
+				destination[0]			 = static_cast<value_type>(source[0]);
+				destination[length >> 1] = static_cast<value_type>(source[length >> 1]);
+				destination[length - 1]	 = static_cast<value_type>(source[length - 1]);
 			}
 		}
 
@@ -773,17 +774,17 @@ namespace jsonifier::internal {
 			if (remaining == 0) {
 				return string2;
 			}
-			using simd_list_local						= type_list_element_t<2, simd::avx_integer_list>;
-			using integer_type							= typename simd_list_local::integer_type;
-			using simd_type								= typename simd_list_local::type::type;
-			static constexpr uint64_t bitsPerByte		= sizeof(integer_type) * 8 / 16;
-			const simd_type simdValue					= simd::gatherValuesU<simd_type>(string1End - 16);
-			const simd_type simdValues01				= simd::gatherValue<simd_type>('"');
-			const simd_type simdValues02				= simd::gatherValue<simd_type>('\\');
-			const simd_type simdValues03				= simd::gatherValue<simd_type>(static_cast<char>(32));
-			const auto flagged							= simd::opOr(simd::opOr(simd::opCmpLtRaw(simdValue, simdValues03), simd::opCmpEqRaw(simdValue, simdValues02)),
-														  simd::opCmpEqRaw(simdValue, simdValues01));
-			integer_type escapeMask						= static_cast<integer_type>(static_cast<integer_type>(simd::opBitMaskRaw(flagged)) >> (bitsPerByte * (16 - remaining)));
+			using simd_list_local				  = type_list_element_t<2, simd::avx_integer_list>;
+			using integer_type					  = typename simd_list_local::integer_type;
+			using simd_type						  = typename simd_list_local::type::type;
+			static constexpr uint64_t bitsPerByte = sizeof(integer_type) * 8 / 16;
+			const simd_type simdValue			  = simd::gatherValuesU<simd_type>(string1End - 16);
+			const simd_type simdValues01		  = simd::gatherValue<simd_type>('"');
+			const simd_type simdValues02		  = simd::gatherValue<simd_type>('\\');
+			const simd_type simdValues03		  = simd::gatherValue<simd_type>(static_cast<char>(32));
+			const auto flagged =
+				simd::opOr(simd::opOr(simd::opCmpLtRaw(simdValue, simdValues03), simd::opCmpEqRaw(simdValue, simdValues02)), simd::opCmpEqRaw(simdValue, simdValues01));
+			integer_type escapeMask = static_cast<integer_type>(static_cast<integer_type>(simd::opBitMaskRaw(flagged)) >> (bitsPerByte * (16 - remaining)));
 			while (escapeMask != 0) {
 				const uint64_t runLength = simd::postCmpTzcntUnsafe(escapeMask);
 				copyUpTo16(string2, string1Start, runLength);
@@ -817,7 +818,7 @@ namespace jsonifier::internal {
 	};
 
 	template<string_literal string> static consteval convert_length_to_int_t<string.size()> getStringAsInt() noexcept {
-		read_buffer_ptr stringNew = string.data();
+		const auto* stringNew = string.data();
 		convert_length_to_int_t<string.size()> returnValue{};
 		for (uint64_t x = 0; x < string.size(); ++x) {
 			returnValue |= static_cast<convert_length_to_int_t<string.size()>>(stringNew[x]) << x * 8;

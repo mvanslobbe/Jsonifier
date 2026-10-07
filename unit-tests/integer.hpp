@@ -107,8 +107,9 @@ namespace i_to_str_tests {
 	template<typename value_type, const auto& values> inline static void checkToCharsMatchesStdToString() {
 		for (auto value: values) {
 			char buffer[32]{};
-			auto* end = jsonifier::internal::to_chars<value_type>::impl(buffer, value);
-			std::string result{ buffer, static_cast<std::size_t>(end - buffer) };
+			auto* bytes = std::bit_cast<jsonifier::write_buffer_ptr>(+buffer);
+			auto* end	= jsonifier::internal::to_chars<value_type>::impl(bytes, value);
+			std::string result{ buffer, static_cast<std::size_t>(end - bytes) };
 			rt_ut::unit_test<"i_to_str_digit_boundary_matches_std_to_string", true>::assert_eq(std::to_string(value), [&]() {
 				return result;
 			});

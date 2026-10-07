@@ -536,12 +536,11 @@ namespace jsonifier::internal {
 				return writeObjectExit<options, json_entity_type::isItLast>(bufferPtr, indent);
 			}
 		}
-
 	};
 
 	template<typename... bases> struct serialize_map : public bases... {
-		template<typename value_type> inline static write_buffer_ptr iterateValues([[maybe_unused]] value_type& value, write_buffer_ptr __restrict bufferPtr,
-			[[maybe_unused]] uint64_t indent) noexcept {
+		template<typename value_type>
+		inline static write_buffer_ptr iterateValues([[maybe_unused]] value_type& value, write_buffer_ptr __restrict bufferPtr, [[maybe_unused]] uint64_t indent) noexcept {
 			((bufferPtr = bases::processIndex(value, bufferPtr, indent)), ...);
 			return bufferPtr;
 		}
@@ -763,8 +762,8 @@ namespace jsonifier::internal {
 			return serialize<options>::impl(get<index>(value), bufferPtr, indent);
 		}
 
-		template<typename value_type_new, uint64_t... indices>
-		JSONIFIER_INLINE static write_buffer_ptr serializeRest(value_type_new& value, write_buffer_ptr __restrict bufferPtr, uint64_t indent, integer_sequence<indices...>) noexcept {
+		template<typename value_type_new, uint64_t... indices> JSONIFIER_INLINE static write_buffer_ptr serializeRest(value_type_new& value, write_buffer_ptr __restrict bufferPtr,
+			uint64_t indent, integer_sequence<indices...>) noexcept {
 			((bufferPtr = serializeMember<indices + 1>(value, bufferPtr, indent)), ...);
 			return bufferPtr;
 		}

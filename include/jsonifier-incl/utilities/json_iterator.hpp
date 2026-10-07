@@ -314,8 +314,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool incrementIfEquals(read_buffer_ptr& iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool incrementIfEquals(read_buffer_ptr& iter, context_type& context) noexcept {
 			return checkChar<charToCheck>(iter, context) ? (static_cast<void>(++iter), true) : false;
 		}
 
@@ -356,7 +355,7 @@ namespace jsonifier::internal {
 					uint64_t depth{};
 					if constexpr (parseOpts.nullTerminated) {
 						while (*iter != '\0') {
-							const char c = *iter;
+							const uint8_t c = *iter;
 							if (c == '"') {
 								if (!skipString(iter, context)) [[unlikely]] {
 									return false;
@@ -374,7 +373,7 @@ namespace jsonifier::internal {
 						}
 					} else {
 						while (iter < context.endIter) {
-							const char c = *iter;
+							const uint8_t c = *iter;
 							if (c == '"') {
 								if (!skipString(iter, context)) [[unlikely]] {
 									return false;
@@ -396,16 +395,16 @@ namespace jsonifier::internal {
 				default: {
 					if constexpr (parseOpts.nullTerminated) {
 						while (true) {
-							const char c = *iter;
-							if (c == ',' || c == ']' || c == '}' || c == '\0' || whitespaceTable[static_cast<uint8_t>(c)]) {
+							const uint8_t c = *iter;
+							if (c == ',' || c == ']' || c == '}' || c == '\0' || whitespaceTable[c]) {
 								return true;
 							}
 							++iter;
 						}
 					} else {
 						while (iter < context.endIter) {
-							const char c = *iter;
-							if (c == ',' || c == ']' || c == '}' || whitespaceTable[static_cast<uint8_t>(c)]) {
+							const uint8_t c = *iter;
+							if (c == ',' || c == ']' || c == '}' || whitespaceTable[c]) {
 								return true;
 							}
 							++iter;
@@ -416,8 +415,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool skipRemainingObject(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool skipRemainingObject(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			while (true) {
 				if constexpr (parseOpts.nullTerminated) {
 					if (*iter != '"') [[unlikely]] {
@@ -535,8 +533,7 @@ namespace jsonifier::internal {
 			return checkDepth(iter, depth, context) && incrementIfEquals<'['>(iter, context) ? true : reject<parse_statuses::missing_array_start>(iter, context);
 		}
 
-		template<bool_t bool_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateBool(bool_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
+		template<bool_t bool_type, typename context_type> JSONIFIER_INLINE static bool iterateBool(bool_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
 			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			if (context.endIter - iter < 4) [[unlikely]] {
@@ -592,10 +589,9 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectObjectSeparator(read_buffer_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectObjectSeparator(read_buffer_ptr& iter, uint64_t, context_type& context) noexcept {
 			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
+				const uint8_t c = *iter;
 				if (c == ',') [[likely]] {
 					++iter;
 					return sep_result::cont;
@@ -606,7 +602,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				if (iter < context.endIter) [[likely]] {
-					const char c = *iter;
+					const uint8_t c = *iter;
 					if (c == ',') [[likely]] {
 						++iter;
 						return sep_result::cont;
@@ -621,10 +617,9 @@ namespace jsonifier::internal {
 			return sep_result::error;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectArraySeparator(read_buffer_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectArraySeparator(read_buffer_ptr& iter, uint64_t, context_type& context) noexcept {
 			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
+				const uint8_t c = *iter;
 				if (c == ',') [[likely]] {
 					++iter;
 					return sep_result::cont;
@@ -635,7 +630,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				if (iter < context.endIter) [[likely]] {
-					const char c = *iter;
+					const uint8_t c = *iter;
 					if (c == ',') [[likely]] {
 						++iter;
 						return sep_result::cont;
@@ -840,8 +835,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static void skipWhitespacePredicted(read_buffer_ptr& iter, const uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static void skipWhitespacePredicted(read_buffer_ptr& iter, const uint64_t depth, context_type& context) noexcept {
 			if (atNewline(iter, context)) [[likely]] {
 				const read_buffer_ptr probe{ skipNewline(iter, context) };
 				const uint64_t predicted{ context.indentSize * depth };
@@ -862,8 +856,7 @@ namespace jsonifier::internal {
 			skipWhitespaceScalar(iter, context);
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static void skipWhitespacePredictedClose(read_buffer_ptr& iter, const uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static void skipWhitespacePredictedClose(read_buffer_ptr& iter, const uint64_t depth, context_type& context) noexcept {
 			if (atWhitespace(iter, context)) {
 				skipWhitespacePredicted(iter, depth - (depth != 0), context);
 			}
@@ -902,19 +895,16 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool incrementIfEqualsNoWs(read_buffer_ptr& iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool incrementIfEqualsNoWs(read_buffer_ptr& iter, context_type& context) noexcept {
 			return checkChar<charToCheck>(iter, context) ? (static_cast<void>(++iter), true) : false;
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool incrementIfEquals(read_buffer_ptr& iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool incrementIfEquals(read_buffer_ptr& iter, context_type& context) noexcept {
 			skipWhitespaceScalar(iter, context);
 			return checkChar<charToCheck>(iter, context) ? (static_cast<void>(++iter), true) : false;
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool incrementIfEqualsNoWsFirst(read_buffer_ptr& iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool incrementIfEqualsNoWsFirst(read_buffer_ptr& iter, context_type& context) noexcept {
 			if (incrementIfEqualsNoWs<charToCheck>(iter, context)) [[likely]] {
 				return true;
 			}
@@ -925,11 +915,10 @@ namespace jsonifier::internal {
 			return false;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectObjectSeparator(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectObjectSeparator(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			skipWhitespacePredictedClose(iter, depth, context);
 			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
+				const uint8_t c = *iter;
 				if (c == ',') [[likely]] {
 					++iter;
 					skipWhitespacePredicted(iter, depth, context);
@@ -941,7 +930,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				if (iter < context.endIter) [[likely]] {
-					const char c = *iter;
+					const uint8_t c = *iter;
 					if (c == ',') [[likely]] {
 						++iter;
 						skipWhitespacePredicted(iter, depth, context);
@@ -957,11 +946,10 @@ namespace jsonifier::internal {
 			return sep_result::error;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectArraySeparator(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectArraySeparator(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			skipWhitespacePredictedClose(iter, depth, context);
 			if constexpr (parseOpts.nullTerminated) {
-				const char c = *iter;
+				const uint8_t c = *iter;
 				if (c == ',') [[likely]] {
 					++iter;
 					skipWhitespacePredicted(iter, depth, context);
@@ -973,7 +961,7 @@ namespace jsonifier::internal {
 				}
 			} else {
 				if (iter < context.endIter) [[likely]] {
-					const char c = *iter;
+					const uint8_t c = *iter;
 					if (c == ',') [[likely]] {
 						++iter;
 						skipWhitespacePredicted(iter, depth, context);
@@ -1050,14 +1038,14 @@ namespace jsonifier::internal {
 					uint64_t depth{};
 					if constexpr (parseOpts.nullTerminated) {
 						while (*iter != '\0') {
-							const char c = *iter;
+							const uint8_t c = *iter;
 							if (c == '"') {
 								if (!skipString(iter, context)) [[unlikely]] {
 									return false;
 								}
 								continue;
 							}
-							if (whitespaceTable[static_cast<uint8_t>(c)]) {
+							if (whitespaceTable[c]) {
 								skipWhitespaceScalar(iter, context);
 								continue;
 							}
@@ -1072,14 +1060,14 @@ namespace jsonifier::internal {
 						}
 					} else {
 						while (iter < context.endIter) {
-							const char c = *iter;
+							const uint8_t c = *iter;
 							if (c == '"') {
 								if (!skipString(iter, context)) [[unlikely]] {
 									return false;
 								}
 								continue;
 							}
-							if (whitespaceTable[static_cast<uint8_t>(c)]) {
+							if (whitespaceTable[c]) {
 								skipWhitespaceScalar(iter, context);
 								continue;
 							}
@@ -1098,16 +1086,16 @@ namespace jsonifier::internal {
 				default: {
 					if constexpr (parseOpts.nullTerminated) {
 						while (true) {
-							const char c = *iter;
-							if (c == ',' || c == ']' || c == '}' || c == '\0' || whitespaceTable[static_cast<uint8_t>(c)]) {
+							const uint8_t c = *iter;
+							if (c == ',' || c == ']' || c == '}' || c == '\0' || whitespaceTable[c]) {
 								return true;
 							}
 							++iter;
 						}
 					} else {
 						while (iter < context.endIter) {
-							const char c = *iter;
-							if (c == ',' || c == ']' || c == '}' || whitespaceTable[static_cast<uint8_t>(c)]) {
+							const uint8_t c = *iter;
+							if (c == ',' || c == ']' || c == '}' || whitespaceTable[c]) {
 								return true;
 							}
 							++iter;
@@ -1118,8 +1106,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool skipRemainingObject(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool skipRemainingObject(read_buffer_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			while (true) {
 				if (atWhitespace(iter, context)) [[unlikely]] {
 					skipWhitespaceScalar(iter, context);
@@ -1271,8 +1258,7 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<bool_t bool_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateBool(bool_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
+		template<bool_t bool_type, typename context_type> JSONIFIER_INLINE static bool iterateBool(bool_type& value, read_buffer_ptr& iter, context_type& context) noexcept {
 			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			skipWhitespaceScalar(iter, context);
@@ -1382,13 +1368,11 @@ namespace jsonifier::internal {
 			return depth < static_cast<uint64_t>(parseOpts.maxDepth) ? true : reject<parse_statuses::exceeded_max_depth>(iter, context);
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool checkChar(structural_index_ptr iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool checkChar(structural_index_ptr iter, context_type& context) noexcept {
 			return iter < context.endIter && *valuePtr(iter, context) == charToCheck;
 		}
 
-		template<char charToCheck, typename context_type>
-		JSONIFIER_INLINE static bool incrementIfEquals(structural_index_ptr& iter, context_type& context) noexcept {
+		template<char charToCheck, typename context_type> JSONIFIER_INLINE static bool incrementIfEquals(structural_index_ptr& iter, context_type& context) noexcept {
 			return checkChar<charToCheck>(iter, context) ? (static_cast<void>(++iter), true) : false;
 		}
 
@@ -1417,8 +1401,7 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool skipRemainingObject(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool skipRemainingObject(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
 			if (iter >= context.endIter || *valuePtr(iter, context) != '"') [[unlikely]] {
 				return reject<parse_statuses::missing_key_start>(iter, context);
 			}
@@ -1521,13 +1504,11 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool objectStart(structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool objectStart(structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			return checkDepth(iter, depth, context) && incrementIfEquals<'{'>(iter, context) ? true : reject<parse_statuses::missing_object_start>(iter, context);
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool arrayStart(structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool arrayStart(structural_index_ptr& iter, uint64_t depth, context_type& context) noexcept {
 			return checkDepth(iter, depth, context) && incrementIfEquals<'['>(iter, context) ? true : reject<parse_statuses::missing_array_start>(iter, context);
 		}
 
@@ -1539,8 +1520,7 @@ namespace jsonifier::internal {
 			return incrementIfEquals<','>(iter, context) ? true : reject<parse_statuses::missing_comma>(iter, context);
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static bool objectMaybeEnd(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static bool objectMaybeEnd(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
 			return incrementIfEquals<'}'>(iter, context);
 		}
 
@@ -1552,8 +1532,7 @@ namespace jsonifier::internal {
 			return incrementIfEquals<':'>(iter, context) ? true : reject<parse_statuses::missing_colon>(iter, context);
 		}
 
-		template<bool_t bool_type, typename context_type>
-		JSONIFIER_INLINE static bool iterateBool(bool_type& value, structural_index_ptr& iter, context_type& context) noexcept {
+		template<bool_t bool_type, typename context_type> JSONIFIER_INLINE static bool iterateBool(bool_type& value, structural_index_ptr& iter, context_type& context) noexcept {
 			static constexpr uint32_t trueVal{ 0b01100101'01110101'01110010'01110100 };
 			static constexpr uint32_t falseVal{ 0b01110011'01101100'01100001'01100110 };
 			read_buffer_ptr ptr = valuePtr(iter, context);
@@ -1611,8 +1590,7 @@ namespace jsonifier::internal {
 			return true;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectObjectSeparator(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectObjectSeparator(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
 			if (iter < context.endIter) [[likely]] {
 				const char c = static_cast<char>(*valuePtr(iter, context));
 				if (c == ',') [[likely]] {
@@ -1628,8 +1606,7 @@ namespace jsonifier::internal {
 			return sep_result::error;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static sep_result collectArraySeparator(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static sep_result collectArraySeparator(structural_index_ptr& iter, uint64_t, context_type& context) noexcept {
 			if (iter < context.endIter) [[likely]] {
 				const char c = static_cast<char>(*valuePtr(iter, context));
 				if (c == ',') [[likely]] {

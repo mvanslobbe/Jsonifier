@@ -85,9 +85,9 @@ namespace jsonifier::internal {
 	};
 
 	inline void appendUnsigned(string& stream, uint64_t value) {
-		char buffer[24];
+		uint8_t buffer[24];
 		auto* end = to_chars<uint64_t>::impl(buffer, value);
-		stream.append(buffer, static_cast<size_t>(end - buffer));
+		stream.append(std::bit_cast<const char*>(+buffer), static_cast<size_t>(end - buffer));
 	}
 
 	inline void appendErrorType(status_classes status_class, string& stream, uint64_t value) {
@@ -206,7 +206,7 @@ namespace jsonifier::internal {
 
 				if (errorPos < endIter) {
 					uint64_t errorLength = std::min(static_cast<uint64_t>(16ULL), static_cast<uint64_t>(endIter - errorPos));
-					string_view view{ errorPos, errorLength };
+					string_view view{ std::bit_cast<const char*>(errorPos), errorLength };
 					context = string{ std::begin(view), static_cast<uint64_t>(view.size()) };
 					for (auto& c: context) {
 						if (c == '\t') {

@@ -204,7 +204,7 @@ namespace jsonifier {
 		return os;
 	}
 
-	JSONIFIER_INLINE constexpr string_view operator""_sv(read_buffer_ptr stringNew, size_t lengthNew) noexcept {
+	JSONIFIER_INLINE constexpr string_view operator""_sv(const char* stringNew, size_t lengthNew) noexcept {
 		return string_view(stringNew, lengthNew);
 	}
 

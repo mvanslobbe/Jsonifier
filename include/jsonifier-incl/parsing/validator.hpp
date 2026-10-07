@@ -13,7 +13,7 @@
 namespace jsonifier::internal {
 
 	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type value) noexcept {
-		return value + strLen(value);
+		return std::bit_cast<read_buffer_ptr>(value + strLen(value));
 	}
 
 	template<pointer_t value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type value) noexcept {
@@ -21,11 +21,11 @@ namespace jsonifier::internal {
 	}
 
 	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getEndIter(value_type& value) noexcept {
-		return value.data() + value.size();
+		return std::bit_cast<read_buffer_ptr>(value.data() + value.size());
 	}
 
 	template<has_data value_type> JSONIFIER_INLINE static read_buffer_ptr getBeginIter(value_type& value) noexcept {
-		return value.data();
+		return std::bit_cast<read_buffer_ptr>(value.data());
 	}
 
 	template<typename derived_type_new> struct validator {
@@ -68,8 +68,7 @@ namespace jsonifier::internal {
 		inline ~validator() noexcept				 = default;
 		inline validator() noexcept					 = default;
 
-		template<typename context_type>
-		inline static structural_index_ptr impl(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> inline static structural_index_ptr impl(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!cursor::notAtEnd(iter, context)) {
 				return nullptr;
 			}
@@ -91,8 +90,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		inline static structural_index_ptr validateObject(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> inline static structural_index_ptr validateObject(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'{'>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}
@@ -124,8 +122,7 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
-		template<typename context_type>
-		inline static structural_index_ptr validateArray(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
+		template<typename context_type> inline static structural_index_ptr validateArray(structural_index_ptr iter, uint64_t depth, context_type& context) noexcept {
 			if (!(cursor::checkDepth(iter, depth, context) && cursor::template checkChar<'['>(iter, context))) [[unlikely]] {
 				return nullptr;
 			}
@@ -149,8 +146,7 @@ namespace jsonifier::internal {
 			return nullptr;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateString(structural_index_ptr iter, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateString(structural_index_ptr iter, context_type& context) noexcept {
 			if (!cursor::template checkChar<'"'>(iter, context)) [[unlikely]] {
 				return nullptr;
 			}
@@ -166,8 +162,7 @@ namespace jsonifier::internal {
 			return scanner_type::impl(newPtr, endPtr, scratch.data()).outLength != std::numeric_limits<uint64_t>::max() ? iter : nullptr;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateNumber(structural_index_ptr iter, context_type& context) noexcept {
 			auto newPtr = cursor::valuePtr(iter, context);
 			++iter;
 			if (cursor::notAtEnd(iter, context) && (*newPtr != 0x30u || !numberTable[static_cast<uint8_t>(*(newPtr + 1))])) [[likely]] {
@@ -211,8 +206,7 @@ namespace jsonifier::internal {
 			return;
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateBool(structural_index_ptr iter, context_type& context) noexcept {
 			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateBool(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
 				return ++iter;
 			} else {
@@ -220,8 +214,7 @@ namespace jsonifier::internal {
 			}
 		}
 
-		template<typename context_type>
-		JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, context_type& context) noexcept {
+		template<typename context_type> JSONIFIER_INLINE static structural_index_ptr validateNull(structural_index_ptr iter, context_type& context) noexcept {
 			if (cursor::notAtEnd(iter, context) && jsonifier::internal::validateNull(cursor::valuePtr(iter, context), context.stringEnd)) [[likely]] {
 				return ++iter;
 			} else {

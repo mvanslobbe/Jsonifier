@@ -16,12 +16,12 @@
 
 namespace jsonifier::internal {
 
-	inline static void printBitsAligned(uint64_t bits, read_buffer_ptr label, read_buffer_ptr __restrict str = nullptr, uint64_t len = 0) noexcept {
+	inline static void printBitsAligned(uint64_t bits, const char* label, read_buffer_ptr __restrict str = nullptr, uint64_t len = 0) noexcept {
 		out << label << ":" << endl;
 		if (str && len > 0) {
 			out << "STR:  ";
 			for (uint64_t i = 0; i < std::min<uint64_t>(len, 64); ++i) {
-				char c = str[i];
+				char c = static_cast<char>(str[i]);
 				if (c == '\n' || c == '\r' || c == '\t') {
 					c = ' ';
 				}

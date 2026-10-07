@@ -18,8 +18,8 @@ namespace jsonifier {
 		enum class number_types : uint8_t { uint64, int64, double64 };
 
 		JSONIFIER_INLINE json_number(string_view sv) noexcept {
-			read_buffer_ptr first = sv.data();
-			read_buffer_ptr last  = sv.data() + sv.size();
+			read_buffer_ptr first = std::bit_cast<read_buffer_ptr>(sv.data());
+			read_buffer_ptr last  = std::bit_cast<read_buffer_ptr>(sv.data() + sv.size());
 
 			if (sv.empty()) {
 				uint_val	= 0;
@@ -157,8 +157,8 @@ namespace jsonifier {
 		}
 
 		template<typename context_type> JSONIFIER_INLINE raw_json_data(context_type& context, const string& jsonDataNew) noexcept {
-			internal::parse_context<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(), &context.getErrors(), jsonDataNew.data(),
-				jsonDataNew.data() + jsonDataNew.size() };
+			internal::parse_context<parse_options{}, read_buffer_ptr, string_base<1024 * 1024>> localContext{ &context.getStringBuffer(), &context.getErrors(), std::bit_cast<read_buffer_ptr>(jsonDataNew.data()),
+				std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) + jsonDataNew.size() };
 			constructValueFromRawJsonData(localContext, jsonDataNew);
 		}
 
@@ -269,7 +269,7 @@ namespace jsonifier {
 	  protected:
 		template<typename context_type> inline void constructValueFromRawJsonData(context_type& context, const string& jsonDataNew) noexcept {
 			static constexpr parse_options optionsNew{};
-			const read_buffer_ptr iter{ jsonDataNew.data() };
+			const read_buffer_ptr iter{ std::bit_cast<read_buffer_ptr>(jsonDataNew.data()) };
 			if (jsonDataNew.size() > 0) {
 				switch (jsonDataNew[0]) {
 					case '{': {

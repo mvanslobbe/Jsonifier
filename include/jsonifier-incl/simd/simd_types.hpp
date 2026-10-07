@@ -12,9 +12,9 @@
 namespace jsonifier {
 
 	using const_structural_index_ptr = const uint32_t*;
-	using read_buffer_ptr			 = const char*;
+	using read_buffer_ptr			 = const uint8_t*;
 	using structural_index_ptr		 = uint32_t*;
-	using write_buffer_ptr			 = char*;
+	using write_buffer_ptr			 = uint8_t*;
 
 	static constexpr uint64_t simdBytesPerRegister{ internal::cpu_properties::get_value(internal::cpu_property_types::alignment) };
 
@@ -26,7 +26,7 @@ namespace jsonifier {
 
 	#if JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX512)
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "AVX512" };
+	static constexpr const char* cpu_arch_name{ "AVX512" };
 
 	using jsonifier_simd_int_t = jsonifier_simd_int_512;
 		#if JSONIFIER_COMPILER_CLANG
@@ -39,7 +39,7 @@ namespace jsonifier {
 
 	#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX2)
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "AVX2" };
+	static constexpr const char* cpu_arch_name{ "AVX2" };
 
 	using jsonifier_simd_int_t = jsonifier_simd_int_256;
 		#if JSONIFIER_COMPILER_CLANG
@@ -55,7 +55,7 @@ namespace jsonifier {
 
 	#elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_AVX)
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "AVX" };
+	static constexpr const char* cpu_arch_name{ "AVX" };
 
 	using jsonifier_simd_int_t = jsonifier_simd_int_128;
 		#if JSONIFIER_COMPILER_CLANG
@@ -74,7 +74,7 @@ namespace jsonifier {
 
 	static_assert(JSONIFIER_SVE2_VECTOR_BITS == 128, "Jsonifier's SVE2 path is only implemented for a 128-bit vector length.");
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "SVE2" };
+	static constexpr const char* cpu_arch_name{ "SVE2" };
 
 	#if JSONIFIER_COMPILER_CLANG
 	static constexpr uint64_t simdTapeStep		= 4;
@@ -94,7 +94,7 @@ namespace jsonifier {
 
 #elif JSONIFIER_CHECK_FOR_INSTRUCTION(JSONIFIER_NEON)
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "NEON" };
+	static constexpr const char* cpu_arch_name{ "NEON" };
 
 	#if JSONIFIER_COMPILER_CLANG
 	static constexpr uint64_t simdTapeStep		= 8;
@@ -113,7 +113,7 @@ namespace jsonifier {
 
 #else
 
-	static constexpr read_buffer_ptr cpu_arch_name{ "FALLBACK" };
+	static constexpr const char* cpu_arch_name{ "FALLBACK" };
 
 	using jsonifier_simd_int_128				= jsonifier::internal::simd::simd_x;
 	using jsonifier_simd_int_256				= uint32_t;

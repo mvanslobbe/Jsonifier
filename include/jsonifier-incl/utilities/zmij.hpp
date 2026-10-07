@@ -478,7 +478,7 @@ namespace {
 											   "4041424344454647484950515253545556575859"
 											   "6061626364656667686970717273747576777879"
 											   "8081828384858687888990919293949596979899";
-		return &data[value * 2ULL];
+		return std::bit_cast<jsonifier::read_buffer_ptr>(&data[value * 2ULL]);
 	}
 
 	constexpr int32_t div10k_exp  = 40;
@@ -496,7 +496,7 @@ namespace {
 	constexpr uint64_t zeros = 0x0101010101010101ULL * static_cast<uint64_t>('0');
 
 	[[maybe_unused]] JSONIFIER_INLINE auto write_if(jsonifier::write_buffer_ptr buffer, uint32_t digit, bool condition) noexcept -> jsonifier::write_buffer_ptr {
-		*buffer = static_cast<char>(static_cast<uint32_t>('0') + digit);
+		*buffer = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
 		return buffer + (condition ? 1 : 0);
 	}
 
@@ -913,8 +913,8 @@ namespace zmij {
 			constexpr int32_t bcd_size		  = traits::num_bits == 64 ? 16 : 8;
 			if (dec_exp >= traits::min_fixed_dec_exp && dec_exp <= traits::max_fixed_dec_exp) {
 				jsonifier::pow2MemcpyWrapper<8>(start, &zeros);
-				char last_digit_char = static_cast<char>(static_cast<int32_t>('0') + (-static_cast<int32_t>(has_last_digit) & dec.last_digit));
-				int32_t num_digits	 = has_last_digit ? bcd_size : dig.num_digits - 1;
+				uint8_t last_digit_char = static_cast<uint8_t>(static_cast<int32_t>('0') + (-static_cast<int32_t>(has_last_digit) & dec.last_digit));
+				int32_t num_digits		= has_last_digit ? bcd_size : dig.num_digits - 1;
 
 				const auto* fixed_layouts = &d->fixed_layouts;
 				if constexpr (JSONIFIER_ARCH_ARM64) {
@@ -936,7 +936,7 @@ namespace zmij {
 			} else {
 				buffer += (has_extra_digit ? 1 : 0);
 				jsonifier::pow2MemcpyWrapper<bcd_size>(buffer, &dig.digits);
-				buffer[bcd_size] = static_cast<char>(static_cast<int32_t>('0') + dec.last_digit);
+				buffer[bcd_size] = static_cast<uint8_t>(static_cast<int32_t>('0') + dec.last_digit);
 				buffer += select(has_last_digit ? 1ULL : 0ULL, bcd_size + 1, dig.num_digits);
 				start[0] = start[1];
 				start[1] = '.';
@@ -962,7 +962,7 @@ namespace zmij {
 						if constexpr (traits::max_exponent10 >= 100) {
 							uint32_t digit = use_umul128_hi64 ? static_cast<uint32_t>(umul128_hi64(static_cast<uint64_t>(dec_exp), 0x290000000000000ULL))
 															  : static_cast<uint32_t>((static_cast<uint32_t>(dec_exp) * div100_sig) >> div100_exp);
-							*buffer		   = static_cast<char>(static_cast<uint32_t>('0') + digit);
+							*buffer		   = static_cast<uint8_t>(static_cast<uint32_t>('0') + digit);
 							buffer += (dec_exp >= 100 ? 1 : 0);
 							dec_exp -= static_cast<int32_t>(digit * 100U);
 						} else {

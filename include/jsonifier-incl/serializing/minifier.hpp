@@ -44,8 +44,8 @@ namespace jsonifier::internal {
 			: endStructural{ endStructuralNew }, iter{ iterNew }, rootIter{ rootIterNew }, endIter{ endIterNew }, minifier{ minifierNew } {
 		}
 
-		JSONIFIER_INLINE uint64_t operator()(write_buffer_ptr __restrict ptrNew, uint64_t) noexcept {
-			const auto index = minifier.impl(iter, endStructural, ptrNew, rootIter, endIter);
+		JSONIFIER_INLINE uint64_t operator()(char* __restrict ptrNew, uint64_t) noexcept {
+			const auto index = minifier.impl(iter, endStructural, std::bit_cast<write_buffer_ptr>(ptrNew), rootIter, endIter);
 			return index != std::numeric_limits<uint64_t>::max() ? index : 0;
 		}
 
@@ -68,7 +68,7 @@ namespace jsonifier::internal {
 
 		template<string_t input_string_type, string_t output_buffer_type> inline bool minifyJson(input_string_type&& in, output_buffer_type&& buffer) noexcept {
 			derivedRef.errors.clear();
-			read_buffer_ptr rootIter = in.data();
+			read_buffer_ptr rootIter = std::bit_cast<read_buffer_ptr>(in.data());
 			read_buffer_ptr endIter	 = rootIter + in.size();
 			derivedRef.section.template reset<false>(rootIter, in.size());
 			structural_index_ptr iter{ derivedRef.section.begin() };
